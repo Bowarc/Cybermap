@@ -1,0 +1,20 @@
+[application]
+
+name = "Cybermap"
+
+# # Static files copied verbatim into the built app (set to enable, e.g. "public")
+# public_dir = "public"
+
+[web.app]
+
+# HTML title tag content
+title = "Cybermap"
+
+base_path = ""
+
+[bundle]
+identifier = "com.bowarc"
+
+publisher = "Bowarc"
+
+category = "Utility"
