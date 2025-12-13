@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use ui::Navbar;
+use ui::{Map, Navbar};
 use views::{Blog, Home};
 
 mod views;
@@ -13,12 +13,16 @@ enum Route {
     Home {},
     #[route("/blog/:id")]
     Blog { id: i32 },
+    #[route("/map")]
+    Map {},
 }
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const MAIN_CSS: Asset = asset!("/assets/main.css");
 
 fn main() {
+    dioxus::logger::init(dioxus::logger::tracing::Level::DEBUG).expect("failed to init logger");
+    debug!("Init");
     dioxus::launch(App);
 }
 
@@ -48,6 +52,10 @@ fn WebNavbar() -> Element {
             Link {
                 to: Route::Blog { id: 1 },
                 "Blog"
+            }
+            Link {
+                to: Route::Map{},
+                "Map"
             }
         }
 

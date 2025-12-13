@@ -5,4 +5,8 @@ edition = "2021"
 
 [dependencies]
 dioxus = { workspace = true }
-
+wasm-bindgen = "0.2.106"
+web-sys = { version = "0.3.83", features = [
+  "HtmlCanvasElement",
+  "CanvasRenderingContext2d",
+] }

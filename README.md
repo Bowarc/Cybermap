@@ -23,7 +23,7 @@ Webserver - [Warp](https://docs.rs/warp/latest/warp/) if I can, else i'll go bac
    - [ ] ?proxy for anonymising map queries  
 
 - [ ] UI
-   - [ ] Map display at startup  
+   - [ ] Map display at startup
    - [ ] The ability to move around  
    - [ ] Zooms  
    - [ ] Cyberpunk-like icons for points of interest  

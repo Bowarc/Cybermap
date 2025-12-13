@@ -10,8 +10,6 @@ name = "Cybermap"
 # HTML title tag content
 title = "Cybermap"
 
-base_path = ""
-
 [bundle]
 identifier = "com.bowarc"
 

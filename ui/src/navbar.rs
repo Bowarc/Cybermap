@@ -6,7 +6,6 @@ const NAVBAR_CSS: Asset = asset!("/assets/styling/navbar.css");
 pub fn Navbar(children: Element) -> Element {
     rsx! {
         document::Link { rel: "stylesheet", href: NAVBAR_CSS }
-
         div {
             id: "navbar",
             {children}
