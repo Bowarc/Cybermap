@@ -5,6 +5,5 @@ use ui::Hero;
 pub fn Home() -> Element {
     rsx! {
         Hero {}
-
     }
 }

@@ -54,7 +54,7 @@ fn WebNavbar() -> Element {
                 "Blog"
             }
             Link {
-                to: Route::Map{},
+                to: Route::Map {},
                 "Map"
             }
         }
