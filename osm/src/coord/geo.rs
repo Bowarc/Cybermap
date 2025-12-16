@@ -31,11 +31,11 @@ impl GeoPoint {
         let c = 2.0 * a.sqrt().asin();
         radius * c
     }
-    pub fn lat(&self) -> f64{
+    pub fn lat(&self) -> f64 {
         self.lat
     }
 
-    pub fn lon(&self) -> f64{
+    pub fn lon(&self) -> f64 {
         self.lon
     }
 }
@@ -55,7 +55,7 @@ pub struct GeoBox {
 pub fn earth_radius_at_lat(lat: f64) -> f64 {
     const WGS84_A: f64 = 6_378.137;
     const WGS84_A2: f64 = WGS84_A * WGS84_A;
-    const WGS84_B: f64 = 6_356.752; 
+    const WGS84_B: f64 = 6_356.752;
     const WGS84_B2: f64 = WGS84_B * WGS84_B;
 
     let lat = lat.to_radians();
@@ -86,13 +86,15 @@ impl GeoBox {
         let lat = center.lat.to_radians();
         let lon = center.lon.to_radians();
 
-        let lat_min = lat - size_km / radius;
-        let lat_max = lat + size_km / radius;
+        let halfsize_km = size_km * 0.5;
+
+        let lat_min = lat - halfsize_km / radius;
+        let lat_max = lat + halfsize_km / radius;
 
         let pradius = radius * lat.cos();
 
-        let lon_min = lon - size_km / pradius;
-        let lon_max = lon + size_km / pradius;
+        let lon_min = lon - halfsize_km / pradius;
+        let lon_max = lon + halfsize_km / pradius;
 
         Self::new(
             GeoPoint::new(lat_min.to_degrees(), lon_min.to_degrees()),
@@ -111,10 +113,10 @@ impl GeoBox {
             lon: self.min.lon + self.width() * 0.5,
         }
     }
-    pub fn min(&self) -> &GeoPoint{
+    pub fn min(&self) -> &GeoPoint {
         &self.min
     }
-    pub fn max(&self) -> &GeoPoint{
+    pub fn max(&self) -> &GeoPoint {
         &self.max
     }
 }
