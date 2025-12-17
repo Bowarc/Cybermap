@@ -2269,6 +2269,7 @@ dependencies = [
  "http",
  "http-body",
  "httparse",
+ "httpdate",
  "itoa",
  "pin-project-lite",
  "pin-utils",
@@ -3784,6 +3785,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "random"
+version = "0.1.0"
+source = "git+https://github.com/bowarc/crates#bcbdbcfe8474755d57092c2e4a936249b16afc0e"
+dependencies = [
+ "log",
+ "rand 0.9.2",
+]
+
+[[package]]
 name = "raw-window-handle"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4199,6 +4209,12 @@ dependencies = [
 [[package]]
 name = "server"
 version = "0.1.0"
+dependencies = [
+ "random",
+ "reqwest",
+ "tokio",
+ "warp",
+]
 
 [[package]]
 name = "servo_arc"
@@ -4658,7 +4674,7 @@ dependencies = [
 [[package]]
 name = "time"
 version = "0.1.0"
-source = "git+https://github.com/bowarc/crates#60dd6d66b2a081f6215218ca5a65dd3f3571c8f5"
+source = "git+https://github.com/bowarc/crates#bcbdbcfe8474755d57092c2e4a936249b16afc0e"
 dependencies = [
  "derivative",
 ]
@@ -4907,6 +4923,7 @@ version = "0.1.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d15d90a0b5c19378952d479dc858407149d7bb45a14de0142f6c534b16fc647"
 dependencies = [
+ "log",
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
@@ -5156,6 +5173,35 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.111",
+]
+
+[[package]]
+name = "warp"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51d06d9202adc1f15d709c4f4a2069be5428aa912cc025d6f268ac441ab066b0"
+dependencies = [
+ "bytes",
+ "futures-util",
+ "headers",
+ "http",
+ "http-body",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "log",
+ "mime",
+ "mime_guess",
+ "percent-encoding",
+ "pin-project",
+ "scoped-tls",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "tokio",
+ "tokio-util",
+ "tower-service",
+ "tracing",
 ]
 
 [[package]]
