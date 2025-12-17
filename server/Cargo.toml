@@ -4,3 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+reqwest = { version = "0.12.26", features = ["json", "stream"] }
+tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread"] }
+warp = { version = "0.4.2", features = ["server"] }
+random = { git = "https://github.com/bowarc/crates", package = "random" }
