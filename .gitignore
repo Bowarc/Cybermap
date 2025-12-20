@@ -6,3 +6,5 @@ assets
 desktop
 
 Dioxus.README.md
+
+server/cache

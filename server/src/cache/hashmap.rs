@@ -11,7 +11,7 @@ impl crate::Cache for CacheMap {
         Ok(())
     }
 
-    fn get(&self, key: &str) -> Result<Option<&str>, String> {
-        Ok(self.get(key).map(|v| v.as_ref()))
+    fn get(&self, key: &str) -> Result<Option<String>, String> {
+        Ok(self.get(key).map(|v| v.as_ref().to_owned()))
     }
 }
