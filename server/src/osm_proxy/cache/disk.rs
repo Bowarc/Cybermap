@@ -10,7 +10,7 @@ pub struct DiskCache {
     pub root_path: PathBuf,
 }
 
-impl crate::Cache for DiskCache {
+impl super::Cache for DiskCache {
     fn insert(&mut self, key: &str, value: &str) -> Result<(), String> {
         let mut hasher = DefaultHasher::default();
         hasher.write(key.as_bytes());

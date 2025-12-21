@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 pub type CacheMap = HashMap<Box<str>, Box<str>>;
 
-impl crate::Cache for CacheMap {
+impl super::Cache for CacheMap {
     fn insert(&mut self, key: &str, value: &str) -> Result<(), String> {
         self.insert(
             key.to_owned().into_boxed_str(),

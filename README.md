@@ -18,9 +18,9 @@ Web and mobile apps will be made using [Dioxus](https://dioxuslabs.com/)
 Webserver - [Warp](https://docs.rs/warp/latest/warp/) if I can, else i'll go back to [Rocket](https://rocket.rs/)  
 
 ## Roadmap  
-- [ ] Webserver - I'm probably gonna use warp for it  
+- [ ] Webserver  
    - [ ] Serving the webapp  
-   - [ ] ?proxy for anonymising map queries  
+   - [x] proxy for anonymising map queries  
 
 - [ ] UI
    - [ ] Map display at startup

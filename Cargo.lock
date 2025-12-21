@@ -4258,6 +4258,7 @@ version = "0.1.0"
 dependencies = [
  "random",
  "reqwest",
+ "serde",
  "tokio",
  "warp",
  "warp-rate-limit",
