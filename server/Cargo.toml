@@ -8,5 +8,6 @@ reqwest = { version = "0.12.26", features = ["json", "stream"] }
 tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread"] }
 warp = { version = "0.4.2", features = ["server"] }
 warp-rate-limit = { git = "https://github.com/bowarc/warp-rate-limit" }
-random = { git = "https://github.com/bowarc/crates", package = "random" }
+logger = { git = "https://github.com/bowarc/crates", package = "logger" }
 serde = { version = "1.0.228", features = ["derive"] }
+log = "0.4.20"

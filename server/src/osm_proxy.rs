@@ -1,9 +1,9 @@
 use reqwest::{Client, StatusCode};
-use std::{collections::HashMap, convert::Infallible, sync::Arc, time::Duration};
+use std::{convert::Infallible, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 use warp_rate_limit::{RateLimitRejection, add_rate_limit_headers_from_rejection, serde};
 
-use warp::{Filter, Rejection, Reply, http::Response};
+use warp::{Filter, Rejection, Reply};
 
 mod api_server;
 mod cache;
@@ -68,16 +68,16 @@ async fn handle_request(
     cache: Arc<RwLock<Box<dyn Cache>>>,
     api_server_pool: api_server::ServerPool,
 ) -> Result<impl Reply, Rejection> {
-    println!("Received a query for {data_query:?}");
+    trace!("Received a query for {data_query:?}");
 
     match cache.read().await.get(&format!("{data_query:?}")) {
         Ok(None) => (),
         Ok(Some(saved)) => {
-            println!("Cache hit");
+            debug!("Cache hit");
             return Ok(warp::reply::with_status(saved, StatusCode::OK));
         }
         Err(e) => {
-            println!("[ERROR]: An error occured while fetching cache: {e}");
+            error!("An error occured while fetching cache: {e}");
             return Err(OSMProxyRejection::CacheFailure.into());
         }
     }
@@ -89,19 +89,19 @@ async fn handle_request(
         .query(&[("data", &data_query)])
         .build()
         .map_err(|e| {
-            println!("[ERROR]: An error occured while building the request with user data: {e}");
+            error!("An error occured while building the request with user data: {e}");
             OSMProxyRejection::InvalidUserData
         })?;
 
-    println!(
+    debug!(
         "Querying url ({}) with: {:?}",
         api_server_url,
         request.url()
     );
 
     let response = client.execute(request).await.map_err(|e| {
-        println!(
-            "[ERROR]: An error occured while querying api server ({}): {e}",
+        error!(
+            "An error occured while querying api server ({}): {e}",
             api_server_url
         );
         OSMProxyRejection::InvalidUserData
@@ -110,8 +110,8 @@ async fn handle_request(
     if !response.status().is_success() {
         let status_code = response.status();
 
-        println!(
-            "[ERROR]: Got a non-success code when querying api server ({}): {}",
+        error!(
+            "Got a non-success code when querying api server ({}): {}",
             api_server_url,
             response.status()
         );
@@ -124,8 +124,8 @@ async fn handle_request(
     }
 
     let res_body = response.text().await.map_err(|e| {
-        println!(
-            "[ERROR]: An error occured while unpacking the reponse of the api server ({}): {e}",
+        error!(
+            "An error occured while unpacking the reponse of the api server ({}): {e}",
             api_server_url
         );
         OSMProxyRejection::APIResponseUnpackingFailed
@@ -136,7 +136,7 @@ async fn handle_request(
         .await
         .insert(&format!("{data_query:?}"), &res_body)
     {
-        println!("[ERROR]: An error occured while writing response to cache: {e}");
+        error!("An error occured while writing response to cache: {e}");
     }
 
     Ok(warp::reply::with_status(res_body, StatusCode::OK))
@@ -179,13 +179,13 @@ async fn handle_rejection(rejection: Rejection) -> Result<impl Reply, Infallible
         if let Err(e) =
             add_rate_limit_headers_from_rejection(response.headers_mut(), rate_limit_rejection)
         {
-            println!("[ERROR] Failed to set rejection rate limit headers due to: {e}")
+            error!("Failed to set rejection rate limit headers due to: {e}")
         }
 
         return Ok(response);
     }
 
-    println!("[ERROR] Unable to find rejection in: {rejection:?}");
+    error!("Unable to find rejection in: {rejection:?}");
 
     Ok(
         warp::reply::with_status("Something went wrong", StatusCode::INTERNAL_SERVER_ERROR)
