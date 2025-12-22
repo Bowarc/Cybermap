@@ -10,7 +10,7 @@ mod cache;
 use api_server::ServerPool;
 use cache::Cache;
 
-const USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64; rv:145.0) Gecko/20100101 Firefox/145.0";
+const USER_AGENT: &str = "Cybermap/0.1.0 (linux; x86_64)";
 
 const API_SERVERS: &[&str] = &[
     "https://lz4.overpass-api.de/api/interpreter",
@@ -87,6 +87,7 @@ async fn handle_request(
     let request = client
         .get(api_server_url.to_string())
         .query(&[("data", &data_query)])
+        .header("User-Agent", USER_AGENT)
         .build()
         .map_err(|e| {
             error!("An error occured while building the request with user data: {e}");
