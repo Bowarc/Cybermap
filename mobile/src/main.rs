@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use ui::{Navbar, Map};
+use ui::{Map, Navbar};
 use views::{Blog, Home};
 
 mod views;
@@ -41,6 +41,32 @@ fn App() -> Element {
 /// which allows us to use the mobile-specific `Route` enum.
 #[component]
 fn MobileNavbar() -> Element {
+    // let wv = &dioxus::mobile::window().webview;
+    // let w = dioxus::mobile::window().window.clone();
+    // let ips = w.inner_size();
+    // let ops = w.outer_size();
+    // let sf = w.scale_factor();
+
+    // let ils = ips.to_logical::<u32>(sf);
+    // let ols = ops.to_logical::<u32>(sf);
+
+    // debug!("Inner phys size: {ips:?}");
+    // debug!("Outer phys size: {ops:?}");
+    // debug!("Scale factor: {sf}");
+
+    // debug!("Inner log size: {ils:?}");
+    // debug!("Outer log size: {ols:?}");
+
+    // let measured_size = (412., 890.);
+
+    // let measured_sf = (ils.width as f64 /measured_size.0, ils.height as f64 / measured_size.1);
+
+    // debug!("Measured sf: {measured_sf:?}");
+
+    // let bounds = wv.bounds();
+
+    // debug!("Webview bounds: {bounds:?}");
+
     rsx! {
         Navbar {
             Link {

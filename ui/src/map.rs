@@ -1,4 +1,7 @@
-use dioxus::prelude::*;
+use dioxus::{
+    html::geometry::PixelsSize,
+    prelude::*,
+};
 
 const MAP_CSS: Asset = asset!("/assets/styling/map.css");
 const CANVAS_ID: &str = "map-canvas";
@@ -48,27 +51,51 @@ pub fn Map() -> Element {
         },
     ];
 
+    let mut dimensions = use_signal(|| None as Option<PixelsSize>);
+    debug!("Map svg render");
+
     rsx! {
         document::Link { rel: "stylesheet", href: MAP_CSS }
+
+        div {
+            "This element is {dimensions():.1?}"
+            br {}
+            "Mouse: {mouse_pos:.1?}"
+        }
 
         svg {
             id: CANVAS_ID,
             width: "100%",
             height: "100%",
-            onmousemove: move |event|{
+
+            // Web
+            onmousemove: move |event| {
                 // debug!("Mouse move");
                 let coords = event.data.client_coordinates();
                 mouse_pos.set((coords.x, coords.y));
             },
-            ontouchmove: move |event|{
+
+            // Mobile
+            ontouchmove: move |event| {
                 let coords = event.touches().first().unwrap().client_coordinates();
                 mouse_pos.set((coords.x, coords.y));
+            },
+            onresize: move |cx| 'onresize: {
+                let size = match cx.data().get_content_box_size() {
+                    Ok(size) => size,
+                    Err(e) => {
+                        error!("Failed to unpack map's svg onresize event due to: {e}");
+                        break 'onresize
+                    }
+                };
+
+                debug!("MAP RESIZED: {}x{}", size.width, size.height);
+                dimensions.set(Some(size));
             },
 
             for item in items.iter() {{
                 item.to_element()
             }}
-
         }
     }
 }

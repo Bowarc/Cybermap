@@ -7,3 +7,4 @@ dioxus = { version = "0.7.2" }
 
 # workspace
 ui = { path = "ui" }
+osm = { path = "osm" }
