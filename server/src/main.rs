@@ -14,6 +14,8 @@ async fn main() {
         logger::Config::default()
             .output(logger::Output::Stdout)
             .filter("warp", log::LevelFilter::Debug)
+            .filter("hyper_util", log::LevelFilter::Warn)
+            .filter("reqwest", log::LevelFilter::Warn)
             .colored(true),
     );
 

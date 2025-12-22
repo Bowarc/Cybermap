@@ -88,6 +88,7 @@ async fn handle_request(
         .get(api_server_url.to_string())
         .query(&[("data", &data_query)])
         .header("User-Agent", USER_AGENT)
+        .timeout(Duration::from_secs(360))
         .build()
         .map_err(|e| {
             error!("An error occured while building the request with user data: {e}");
