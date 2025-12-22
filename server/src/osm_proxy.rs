@@ -34,8 +34,8 @@ pub fn build_route() -> impl Filter<Extract = impl Reply, Error = Infallible> + 
     let api_pool = ServerPool::new(API_SERVERS, Duration::from_secs(1), FALLBACK_API_SERVER);
 
     let rate_limiter_config = warp_rate_limit::RateLimitConfig {
-        max_requests: 60,
-        window: Duration::from_secs(60),
+        max_requests: 4,
+        window: Duration::from_secs(10),
         retry_after_format: warp_rate_limit::RetryAfterFormat::HttpDate,
         ip_header: "X-Forwarded-For".to_owned(),
     };
