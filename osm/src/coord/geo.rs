@@ -80,21 +80,21 @@ impl GeoBox {
     }
 
     // https://stackoverflow.com/questions/238260/how-to-calculate-the-bounding-box-for-a-given-lat-lng-location
-    pub fn from_center_and_size(center: GeoPoint, size_km: f64) -> Self {
+    pub fn from_center_and_size(center: GeoPoint, size_km: (f64, f64)) -> Self {
         let radius = earth_radius_at_lat(center.lat);
 
         let lat = center.lat.to_radians();
         let lon = center.lon.to_radians();
 
-        let halfsize_km = size_km * 0.5;
+        let (halfsize_km_width, halfsize_km_height) = (size_km.0 * 0.5, size_km.1 * 0.5);
 
-        let lat_min = lat - halfsize_km / radius;
-        let lat_max = lat + halfsize_km / radius;
+        let lat_min = lat - halfsize_km_height / radius;
+        let lat_max = lat + halfsize_km_height / radius;
 
         let pradius = radius * lat.cos();
 
-        let lon_min = lon - halfsize_km / pradius;
-        let lon_max = lon + halfsize_km / pradius;
+        let lon_min = lon - halfsize_km_width / pradius;
+        let lon_max = lon + halfsize_km_width / pradius;
 
         Self::new(
             GeoPoint::new(lat_min.to_degrees(), lon_min.to_degrees()),
