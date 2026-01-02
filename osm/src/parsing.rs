@@ -64,7 +64,7 @@ fn parse_raw_osm_data(json_data: serde_json::Value) -> Result<SplitRawOsmData, s
     Ok(SplitRawOsmData::from_raw_osm_data(osm_data))
 }
 
-pub fn parse_osm_json(json_value: serde_json::Value) -> Result<Vec<NWR>, serde_json::Error> {
+pub fn parse_osm_json(json_value: serde_json::Value) -> Result<Rc<[NWR]>, serde_json::Error> {
     let split_data = parse_raw_osm_data(json_value)?;
     let mut nodes_map: HashMap<u64, OSMNode> = HashMap::new();
     let mut ways_map: HashMap<u64, OSMWay> = HashMap::new();
@@ -126,5 +126,5 @@ pub fn parse_osm_json(json_value: serde_json::Value) -> Result<Vec<NWR>, serde_j
 
     println!("Skipped {} relations", split_data.relations.len());
 
-    Ok(nwr)
+    Ok(Rc::from(nwr))
 }

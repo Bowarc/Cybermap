@@ -5,5 +5,5 @@ pub use hero::Hero;
 mod navbar;
 pub use navbar::Navbar;
 
-pub mod map;
-pub use map::Map;
+pub mod svgmap;
+pub use svgmap::SvgMap;
