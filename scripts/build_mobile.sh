@@ -48,7 +48,7 @@ mobile_build_dir="$cybermap_build_root/mobile"
 
 if [[ -d $mobile_build_dir ]] then
   echo -e  "\nRemoving old output dir"
-  print_exec "rm -r $mobile_build_dir"
+  print_exec "rm -r $mobile_build_dir/*"
 fi
 
 echo -e "\nCreating output dir"

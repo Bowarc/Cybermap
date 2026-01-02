@@ -26,7 +26,7 @@ web_build_dir="$cybermap_build_root/web"
 
 if [[ -d $web_build_dir ]] then
   echo -e  "Removing old output dir ($web_build_dir)"
-  print_exec "rm -r $web_build_dir"
+  print_exec "rm -r $web_build_dir/*"
   echo 
 fi
 
