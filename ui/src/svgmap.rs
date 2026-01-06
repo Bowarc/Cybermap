@@ -103,8 +103,11 @@ impl Shape {
 fn generate_shapes(svg_size: PixelsSize, bx: &GeoBox, nwr: &[NWR]) -> Vec<Shape> {
     let map_pt = |pt: GeoPoint| -> ScreenPoint {
         ScreenPoint {
-            x: svg_size.width * ((pt.lon() - bx.min().lon()) / bx.width()),
-            y: svg_size.height * (1. - (pt.lat() - bx.min().lat()) / (bx.height())),
+            // x: svg_size.width * ((pt.lon() - bx.min().lon()) / bx.width()),
+            // y: svg_size.height * (1. - (pt.lat() - bx.min().lat()) / bx.height()),
+            x: svg_size.width * ((pt.lon() - bx.min().lon()) / (bx.max().lon() - bx.min().lon())),
+            y: svg_size.height
+                * (1. - (pt.lat() - bx.min().lat()) / (bx.max().lat() - bx.min().lat())),
         }
     };
 
@@ -135,7 +138,13 @@ fn generate_shapes(svg_size: PixelsSize, bx: &GeoBox, nwr: &[NWR]) -> Vec<Shape>
                     continue;
                 }
                 if way.tags.contains_key("area") {
-                    debug!("Skipping area: {way:?}");
+                    debug!(
+                        "Skipping area: {}",
+                        way.tags
+                            .get("name")
+                            .map(|s| s.to_string())
+                            .unwrap_or_else(|| format!("{way:?}"))
+                    );
                     continue;
                 }
                 let color = String::from("rgba(0, 255, 255, 0.33)");
@@ -166,7 +175,7 @@ fn generate_shapes(svg_size: PixelsSize, bx: &GeoBox, nwr: &[NWR]) -> Vec<Shape>
 
                     let line_angle = (p2.y - p1.y).atan2(p2.x - p1.x);
                     static BORDER_DISTANCE: f64 = 3.;
-                    
+
                     outlines[0].extend([
                         rotate_pt(&p1, BORDER_DISTANCE, line_angle + 90f64.to_radians()),
                         rotate_pt(&p2, BORDER_DISTANCE, line_angle + 90f64.to_radians()),
@@ -244,6 +253,12 @@ pub fn SvgMap(
     if let Some(size) = svg_dimensions()
         && let Some((geobox, nwr)) = osm_data
     {
+        debug!(
+            "OSMData size: {} for a box of {}x{} km",
+            nwr.len(),
+            geobox.width_km(),
+            geobox.height_km()
+        );
         shapes.set(generate_shapes(size, &geobox, &nwr));
     }
 
