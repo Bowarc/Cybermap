@@ -100,45 +100,6 @@ impl Shape {
     }
 }
 
-fn generate_rectangle_points(p1: &ScreenPoint, p2: &ScreenPoint, width: f64) -> [ScreenPoint; 4] {
-    // Calculate the vector between the two points
-    let dx = p2.x - p1.x;
-    let dy = p2.y - p1.y;
-
-    // Calculate the perpendicular vector (rotated 90 degrees)
-    let perpendicular_dx = -dy;
-    let perpendicular_dy = dx;
-
-    // Normalize the perpendicular vector
-    let magnitude = (perpendicular_dx.powi(2) + perpendicular_dy.powi(2)).sqrt();
-    let unit_perpendicular_x = perpendicular_dx / magnitude;
-    let unit_perpendicular_y = perpendicular_dy / magnitude;
-
-    // Scale the perpendicular vector to the width
-    let scaled_perpendicular_x = unit_perpendicular_x * width;
-    let scaled_perpendicular_y = unit_perpendicular_y * width;
-
-    // Calculate the 4 points of the rectangle
-    [
-        ScreenPoint {
-            x: p1.x + scaled_perpendicular_x,
-            y: p1.y + scaled_perpendicular_y,
-        },
-        ScreenPoint {
-            x: p2.x + scaled_perpendicular_x,
-            y: p2.y + scaled_perpendicular_y,
-        },
-        ScreenPoint {
-            x: p2.x - scaled_perpendicular_x,
-            y: p2.y - scaled_perpendicular_y,
-        },
-        ScreenPoint {
-            x: p1.x - scaled_perpendicular_x,
-            y: p1.y - scaled_perpendicular_y,
-        },
-    ]
-}
-
 fn generate_shapes(svg_size: PixelsSize, bx: &GeoBox, nwr: &[NWR]) -> Vec<Shape> {
     let map_pt = |pt: GeoPoint| -> ScreenPoint {
         ScreenPoint {
@@ -178,7 +139,7 @@ fn generate_shapes(svg_size: PixelsSize, bx: &GeoBox, nwr: &[NWR]) -> Vec<Shape>
                     continue;
                 }
                 let color = String::from("rgba(0, 255, 255, 0.33)");
-                let outline_color = String::from("rgba(255, 0, 255, 1)");
+                let outline_color = String::from("rgba(0, 255, 255, 1)");
 
                 let mut outlines: [Vec<ScreenPoint>; 2] = Default::default();
 
@@ -191,19 +152,29 @@ fn generate_shapes(svg_size: PixelsSize, bx: &GeoBox, nwr: &[NWR]) -> Vec<Shape>
                     let p1 = map_pt(last.pos);
                     let p2 = map_pt(current.pos);
 
-                    let rect = generate_rectangle_points(&p1, &p2, 5.);
+                    let rotate_pt =
+                        |origin: &ScreenPoint, distance: f64, angle: f64| -> ScreenPoint {
+                            let pt = ScreenPoint::new(origin.x + distance, origin.y);
+                            ScreenPoint::new(
+                                origin.x + angle.cos() * (pt.x - origin.x)
+                                    - angle.sin() * (pt.y - origin.y),
+                                origin.y
+                                    + angle.sin() * (pt.x - origin.x)
+                                    + angle.cos() * (pt.y - origin.y),
+                            )
+                        };
 
+                    let line_angle = (p2.y - p1.y).atan2(p2.x - p1.x);
+                    static BORDER_DISTANCE: f64 = 3.;
+                    
                     outlines[0].extend([
-                        ScreenPoint::new(rect[0].x, rect[0].y),
-                        ScreenPoint::new(rect[1].x, rect[1].y),
+                        rotate_pt(&p1, BORDER_DISTANCE, line_angle + 90f64.to_radians()),
+                        rotate_pt(&p2, BORDER_DISTANCE, line_angle + 90f64.to_radians()),
                     ]);
 
-                    // FIXME: There is some artifcats caused by this line,
-                    // Some outlines are matching with i-don't-know-what node from the same road
-                    // I don't understand why this is only with one side of the outline (always the green one)     
                     outlines[1].extend([
-                        ScreenPoint::new(rect[2].x, rect[2].y),
-                        ScreenPoint::new(rect[3].x, rect[3].y),
+                        rotate_pt(&p1, BORDER_DISTANCE, line_angle + -90f64.to_radians()),
+                        rotate_pt(&p2, BORDER_DISTANCE, line_angle + -90f64.to_radians()),
                     ]);
                 }
 
@@ -215,7 +186,7 @@ fn generate_shapes(svg_size: PixelsSize, bx: &GeoBox, nwr: &[NWR]) -> Vec<Shape>
                         .map(|node| map_pt(node.pos))
                         .map(|pt| (pt.x as u32, pt.y as u32))
                         .collect::<Vec<_>>(),
-                    width: 2,
+                    width: 4,
                     color,
                     fill: String::from("none"),
                 });
@@ -245,7 +216,7 @@ fn generate_shapes(svg_size: PixelsSize, bx: &GeoBox, nwr: &[NWR]) -> Vec<Shape>
                             .iter()
                             .map(|pt| (pt.x as u32, pt.y as u32))
                             .collect::<Vec<_>>(),
-                        width: 1,
+                        width: 2,
                         color: outline_color.clone(),
                         fill: String::from("none"),
                     });
