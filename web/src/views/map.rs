@@ -89,7 +89,7 @@ pub fn Map() -> Element {
                 return;
             }
 
-            let box_center = todo!();
+            let box_center = GeoPoint::new(todo!(), todo!());
             let range_km = 1.;
             let scale_factor = range_km / svg_size.width.max(svg_size.height);
             let box_size = (
@@ -98,19 +98,27 @@ pub fn Map() -> Element {
             );
 
             // TODO: Redo that to make it dynamic
-            let geobox = GeoBox::from_center_and_size(box_center, box_size);
-            let nwr = match query(geobox, API_URL).await{
-                Ok(nwr) => nwr,
-                Err(QueryError::Reqwest(e)) => {
-                    error!("Overpass api request failled due to: {e}");
-                    return;
-                }
-                Err(QueryError::SerdeJson(e)) =>{
-                    error!("Failed to decode Overpass api response due to: {e}");
-                    return;
-                }
-            };
-            osm_data.set(Some((geobox, nwr)));
+            let mut retries = 0;
+            const MAX_RETRIES: u8 = 2;
+            while retries < MAX_RETRIES {
+                let geobox = GeoBox::from_center_and_size(box_center, box_size);
+                let nwr = match query(geobox, API_URL).await {
+                    Ok(nwr) => nwr,
+                    Err(QueryError::Reqwest(e)) => {
+                        error!("Overpass api request failled due to: {e}");
+                        retries += 1;
+                        debug!("Retrying");
+                        continue;
+                    }
+                    Err(QueryError::SerdeJson(e)) => {
+                        error!("Failed to decode Overpass api response due to: {e}");
+                        return;
+                    }
+                };
+                debug!("Got NWR in {} tries", retries + 1);
+                osm_data.set(Some((geobox, nwr)));
+                break;
+            }
         }
     });
 
