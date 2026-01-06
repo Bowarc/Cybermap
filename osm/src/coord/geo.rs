@@ -101,16 +101,37 @@ impl GeoBox {
             GeoPoint::new(lat_max.to_degrees(), lon_max.to_degrees()),
         )
     }
-    pub fn width(&self) -> f64 {
-        self.max.lon - self.min.lon
+
+    /// Rounded at 0.001
+    pub fn width_km(&self) -> f64 {
+        let center = self.center();
+
+        (center.distance_to(&GeoPoint {
+            lat: center.lat,
+            lon: self.max.lon,
+        }) * 2000.)
+            .round()
+            /1000.
     }
-    pub fn height(&self) -> f64 {
-        self.max.lat - self.min.lat
+
+    /// Rounded at 0.001
+    pub fn height_km(&self) -> f64 {
+        let center = self.center();
+
+        (center.distance_to(&GeoPoint {
+            lat: self.max.lat,
+            lon: center.lon,
+        }) * 2000.)
+            .round()
+            / 1000.
     }
+
     pub fn center(&self) -> GeoPoint {
         GeoPoint {
-            lat: self.min.lat + self.height() * 0.5,
-            lon: self.min.lon + self.width() * 0.5,
+            // lat: self.min.lat + self.height() * 0.5,
+            // lon: self.min.lon + self.width() * 0.5,
+            lat: self.min.lat + (self.max.lat - self.min.lat) * 0.5,
+            lon: self.min.lon + (self.max.lon - self.min.lon) * 0.5,
         }
     }
     pub fn min(&self) -> &GeoPoint {
@@ -119,4 +140,17 @@ impl GeoBox {
     pub fn max(&self) -> &GeoPoint {
         &self.max
     }
+}
+
+#[test]
+fn genobox() {
+    let coords = (40.730610, -73.935242); // NY
+    let size_km = (8.222, 2.111);
+
+    let bx = GeoBox::from_center_and_size(GeoPoint::new(coords.0, coords.1), size_km);
+
+    // println!("Width: {}, expected: {}", bx.width_km(), size_km.0);
+    // println!("Height: {}, expected: {}", bx.height_km(), size_km.1);
+    assert!(bx.width_km() == size_km.0);
+    assert!(bx.height_km() == size_km.1);
 }

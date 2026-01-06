@@ -8,4 +8,3 @@ impl ScreenPoint {
         Self { x, y }
     }
 }
-
