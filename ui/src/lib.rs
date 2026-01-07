@@ -7,3 +7,5 @@ pub use navbar::Navbar;
 
 pub mod svgmap;
 pub use svgmap::SvgMap;
+
+mod svg_element;
