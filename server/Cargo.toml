@@ -11,3 +11,4 @@ warp-rate-limit = { git = "https://github.com/bowarc/warp-rate-limit" }
 logger = { git = "https://github.com/bowarc/crates", package = "logger" }
 serde = { workspace = true, features = ["derive"] }
 log = "0.4.20"
+time = { git = "https://github.com/bowarc/crates", package = "time" }

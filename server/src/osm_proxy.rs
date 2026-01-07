@@ -1,6 +1,6 @@
 use reqwest::{Client, StatusCode};
 use std::{convert::Infallible, sync::Arc, time::Duration};
-use tokio::sync::RwLock;
+use tokio::{sync::RwLock, time::Instant};
 use warp_rate_limit::{RateLimitRejection, add_rate_limit_headers_from_rejection, serde};
 
 use warp::{Filter, Rejection, Reply};
@@ -70,10 +70,13 @@ async fn handle_request(
 ) -> Result<impl Reply, Rejection> {
     trace!("Received a query for {data_query:?}");
 
+    let t1 = Instant::now();
+
     match cache.read().await.get(&format!("{data_query:?}")) {
         Ok(None) => (),
         Ok(Some(saved)) => {
             debug!("Cache hit");
+            debug!("Response in: {}", time::format(&t1.elapsed(), 2));
             return Ok(warp::reply::with_status(saved, StatusCode::OK));
         }
         Err(e) => {
@@ -88,23 +91,19 @@ async fn handle_request(
         .get(api_server_url.to_string())
         .query(&[("data", &data_query)])
         .header("User-Agent", USER_AGENT)
-        .timeout(Duration::from_secs(360))
+        .timeout(Duration::from_secs(20))
         .build()
         .map_err(|e| {
             error!("An error occured while building the request with user data: {e}");
             OSMProxyRejection::InvalidUserData
         })?;
 
-    debug!(
-        "Querying url ({}) with: {:?}",
-        api_server_url,
-        request.url()
-    );
+    debug!("Querying url ({api_server_url})");
 
     let response = client.execute(request).await.map_err(|e| {
         error!(
-            "An error occured while querying api server ({}): {e}",
-            api_server_url
+            "An error occured while querying api server ({}) with data ({}): {e}",
+            api_server_url, data_query
         );
         OSMProxyRejection::InvalidUserData
     })?;
@@ -140,6 +139,8 @@ async fn handle_request(
     {
         error!("An error occured while writing response to cache: {e}");
     }
+
+    debug!("Response in: {}", time::format(&t1.elapsed(), 2));
 
     Ok(warp::reply::with_status(res_body, StatusCode::OK))
 }
