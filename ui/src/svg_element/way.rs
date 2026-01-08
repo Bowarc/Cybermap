@@ -28,8 +28,8 @@ pub fn gen_way(
             break;
         };
 
-        let p1 = map_pt(last.pos);
-        let p2 = map_pt(current.pos);
+        let last_pt = map_pt(last.pos);
+        let current_pt = map_pt(current.pos);
 
         let rotate_pt = |origin: &ScreenPoint, distance: f64, angle: f64| -> ScreenPoint {
             let pt = ScreenPoint::new(origin.x + distance, origin.y);
@@ -39,33 +39,38 @@ pub fn gen_way(
             )
         };
 
-        let line_angle = (p2.y - p1.y).atan2(p2.x - p1.x);
+        let line_angle = (current_pt.y - last_pt.y).atan2(current_pt.x - last_pt.x);
 
-        outlines[0].extend([
-            rotate_pt(
-                &p1,
-                way_border_distance_scaled,
-                line_angle + 90f64.to_radians(),
-            ),
-            rotate_pt(
-                &p2,
-                way_border_distance_scaled,
-                line_angle + 90f64.to_radians(),
-            ),
-        ]);
-
-        outlines[1].extend([
-            rotate_pt(
-                &p1,
-                way_border_distance_scaled,
-                line_angle + -90f64.to_radians(),
-            ),
-            rotate_pt(
-                &p2,
-                way_border_distance_scaled,
-                line_angle + -90f64.to_radians(),
-            ),
-        ]);
+        clamp_and_push(
+            [
+                rotate_pt(
+                    &last_pt,
+                    way_border_distance_scaled,
+                    line_angle + 90f64.to_radians(),
+                ),
+                rotate_pt(
+                    &current_pt,
+                    way_border_distance_scaled,
+                    line_angle + 90f64.to_radians(),
+                ),
+            ],
+            &mut outlines[0],
+        );
+        clamp_and_push(
+            [
+                rotate_pt(
+                    &last_pt,
+                    way_border_distance_scaled,
+                    line_angle - 90f64.to_radians(),
+                ),
+                rotate_pt(
+                    &current_pt,
+                    way_border_distance_scaled,
+                    line_angle - 90f64.to_radians(),
+                ),
+            ],
+            &mut outlines[1],
+        );
     }
 
     // Road
@@ -90,7 +95,7 @@ pub fn gen_way(
     //         color: String::from("red"),
     //     })
     // }
-    // 
+    //
     // for pt in outlines[1].iter() {
     //     shapes.push(Shape::Rect {
     //         x: pt.x as u32,
@@ -112,4 +117,90 @@ pub fn gen_way(
             fill: String::from("none"),
         });
     }
+}
+
+pub fn line_line(l1: &[&ScreenPoint; 2], l2: &[&ScreenPoint; 2]) -> bool {
+    fn ccw(a: &ScreenPoint, b: &ScreenPoint, c: &ScreenPoint) -> bool {
+        (c.y - a.y) * (b.x - a.x) > (b.y - a.y) * (c.x - a.x)
+    }
+    fn intersect(a: &ScreenPoint, b: &ScreenPoint, c: &ScreenPoint, d: &ScreenPoint) -> bool {
+        ccw(a, c, d) != ccw(b, c, d) && ccw(a, b, c) != ccw(a, b, d)
+    }
+    intersect(l1[0], l1[1], l2[0], l2[1])
+}
+
+pub fn line_intersection(l1: &[&ScreenPoint; 2], l2: &[&ScreenPoint; 2]) -> Option<ScreenPoint> {
+    let (p1, p2) = (l1[0], l1[1]);
+    let (p3, p4) = (l2[0], l2[1]);
+
+    // Denominator (if zero, lines are parallel)
+    let denom = (p4.y - p3.y) * (p2.x - p1.x) - (p4.x - p3.x) * (p2.y - p1.y);
+    if denom.abs() < 1e-10 {
+        return None;
+    }
+
+    let ua = ((p4.x - p3.x) * (p1.y - p3.y) - (p4.y - p3.y) * (p1.x - p3.x)) / denom;
+    let ub = ((p2.x - p1.x) * (p1.y - p3.y) - (p2.y - p1.y) * (p1.x - p3.x)) / denom;
+
+    // Check if intersection is within line segments
+    if (0.0..=1.0).contains(&ua) && (0.0..=1.0).contains(&ub) {
+        Some(ScreenPoint {
+            x: (p1.x + ua * (p2.x - p1.x)),
+            y: (p1.y + ua * (p2.y - p1.y)),
+        })
+    } else {
+        None // Intersection outside line segments
+    }
+}
+
+fn clamp_and_push(mut current_line: [ScreenPoint; 2], others: &mut Vec<ScreenPoint>) {
+    let clamp_one = |current: &mut [ScreenPoint; 2], other: [&mut ScreenPoint; 2]| {
+        // line_interaction already checks for if the lines are actually crossing
+        // if !line_line(&[&current[0], &current[1]], &[other[0], other[1]]) {
+        //     return;
+        // }
+
+        let Some(intersection_pt) =
+            line_intersection(&[&current[0], &current[1]], &[other[0], other[1]])
+        else {
+            return;
+        };
+
+        current[0] = intersection_pt;
+
+        other[0].x = intersection_pt.x;
+        other[0].y = intersection_pt.y;
+    };
+
+    let others_len = others.len();
+
+    // NOTE: Merging more than the last 3 lines could result in roads that overlap themselves (like spirals)
+    // to weirdly merge at abnormal places
+    //
+    // Iteration:
+    // At first i wanted to iter over the last 3 lines from oldest to newest, so:
+    // len - 5, len - 6
+    // len - 3, len - 4
+    // len - 1, len - 2
+    //
+    // Then I figured checking made up lines in between could also be helpful (which it was)
+    // len - 5, len - 6
+    // len - 4, len - 5
+    // len - 3, len - 4
+    // len - 2, len - 3
+    // len - 1, len - 2
+    for line_index in (1..=5).rev() {
+        let Ok(previous_line) =
+            others.get_disjoint_mut([others_len - line_index, others_len - (line_index + 1)])
+        else {
+            continue;
+        };
+
+        clamp_one(&mut current_line, previous_line);
+    }
+
+    others.extend(current_line);
+
+    // Maybe helpful, remove useless nodes
+    others.dedup();
 }
