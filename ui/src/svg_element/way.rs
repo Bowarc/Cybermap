@@ -22,10 +22,19 @@ pub fn gen_way(
     let way_width_scaled = WAY_WIDTH_KM * scale_km;
     let way_border_distance_scaled = way_width_scaled * 0.5;
 
-    for i in 1..way.nodes.len() {
-        let last = way.nodes.get(i - 1).unwrap();
-        let Some(current) = way.nodes.get(i) else {
+    for i in 1..way.nodes.len() + 1 {
+        let Some(last) = way.nodes.get(i - 1) else {
             break;
+        };
+
+        // let Some(current) = way.nodes.get(i) else {
+        //     break;
+        // };
+
+        let current = match way.nodes.get(i) {
+            Some(current) => current,
+            None if way.nodes.first() == way.nodes.last() && i > 1 => way.nodes.get(1).unwrap(),
+            None => break,
         };
 
         let last_pt = map_pt(last.pos);
