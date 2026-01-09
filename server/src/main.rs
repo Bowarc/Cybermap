@@ -1,7 +1,10 @@
+use warp::Filter;
+
 #[macro_use]
 extern crate log;
 
 mod osm_proxy;
+mod rejection;
 
 const ADDR: std::net::SocketAddr = std::net::SocketAddr::V4(std::net::SocketAddrV4::new(
     std::net::Ipv4Addr::new(127, 0, 0, 1),
@@ -26,8 +29,15 @@ async fn main() {
     );
 
     let proxy_route = osm_proxy::build_route();
+    let static_route = warp::get().and(warp::fs::dir("static"));
 
     debug!("Listening on http://{}:{}", ADDR.ip(), ADDR.port());
 
-    warp::serve(proxy_route).run(ADDR).await;
+    warp::serve(
+        proxy_route
+            .or(static_route)
+            .recover(rejection::handle_rejection),
+    )
+    .run(ADDR)
+    .await;
 }

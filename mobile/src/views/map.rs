@@ -53,7 +53,8 @@ async fn query(geobox: GeoBox, url: &str) -> std::rc::Rc<[NWR]> {
     let json_value = 'req: {
         let request = client
             .get(url)
-            .timeout(Duration::from_secs_f32(20.))
+            .timeout(Duration::from_secs_f32(10.))
+            .header("cybermap", "8b3d00bf-b0cc-4a7d-b389-9c0e9d0688f8")
             .query(&[("data", query)]);
 
         debug!("Sending: {request:?}");

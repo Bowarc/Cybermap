@@ -18,8 +18,9 @@ enum QueryError {
 async fn query(geobox: GeoBox, url: &str) -> Result<std::rc::Rc<[NWR]>, QueryError> {
     let query = format!(
         r#"
-            [out:json][timeout:360][bbox:{},{},{},{}];
-            (way
+        [out:json][timeout:360][bbox:{},{},{},{}];
+        (
+            way
             ['name']
             ['highway']
             ['highway' !~ 'path']
@@ -37,9 +38,9 @@ async fn query(geobox: GeoBox, url: &str) -> Result<std::rc::Rc<[NWR]>, QueryErr
             ['foot' !~ 'no']
             ['access' !~ 'private']
             ['access' !~ 'no'];
-            );
-            (._;>;);
-            out;
+        );
+        (._;>;);
+        out;
         "#,
         geobox.min().lat(),
         geobox.min().lon(),
@@ -54,7 +55,8 @@ async fn query(geobox: GeoBox, url: &str) -> Result<std::rc::Rc<[NWR]>, QueryErr
     let json_value = {
         let request = client
             .get(url)
-            .timeout(Duration::from_secs_f32(20.))
+            .timeout(Duration::from_secs_f32(10.))
+            .header("cybermap", "8b3d00bf-b0cc-4a7d-b389-9c0e9d0688f8")
             .query(&[("data", query)]);
 
         debug!("Sending: {request:?}");
@@ -90,7 +92,7 @@ pub fn Map() -> Element {
             }
 
             let box_center = GeoPoint::new(todo!(), todo!());
-            let range_km = 1.;
+            let range_km = 2.;
             let scale_factor = range_km / svg_size.width.max(svg_size.height);
             let box_size = (
                 svg_size.width * scale_factor,
@@ -124,7 +126,6 @@ pub fn Map() -> Element {
 
     rsx! {
         div {
-
             // onresize: move |cx| async move { 'onresize: {
             //     let size = match cx.data().get_content_box_size() {
             //         Ok(size) => size,
