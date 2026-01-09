@@ -11,19 +11,24 @@ pub enum NWR {
     Relation(OSMRelation),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct OSMNode {
     pub osm_id: u64,
     pub pos: GeoPoint,
     pub tags: Tagmap, // Box is even better than Rc if you don't need to clone.
 }
+
+impl PartialEq for OSMNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.osm_id == other.osm_id
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct OSMWay {
     pub osm_id: u64,
-    // pub nodes_ids: Rc<[u64]>, // Box is even better than Rc if you don't need to clone.
     pub nodes: Rc<[OSMNode]>, // Box is even better than Rc if you don't need to clone.
     pub tags: Tagmap,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct OSMRelation {}
-

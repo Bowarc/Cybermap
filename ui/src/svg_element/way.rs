@@ -27,12 +27,9 @@ pub fn gen_way(
             break;
         };
 
-        // let Some(current) = way.nodes.get(i) else {
-        //     break;
-        // };
-
         let current = match way.nodes.get(i) {
             Some(current) => current,
+            // Circular ways
             None if way.nodes.first() == way.nodes.last() && i > 1 => way.nodes.get(1).unwrap(),
             None => break,
         };
