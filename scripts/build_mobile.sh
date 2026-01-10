@@ -5,12 +5,19 @@ trap "echo; exit" INT # Actually exit the script when you hit CTRL+C
 
 scripts_dir=$(dirname "$0")
 if [[ "$scripts_dir" == "" ]] then
+  echo "[FATAL] Failed to get scripts directory"
   exit 1
 fi
 source "$scripts_dir/shared.sh"
 
-parse_cargo_basics "$@"
+parse_cargo_action "$@"
+parse_cargo_profile "$@"
 parse_mobile_target "$@"
+
+if [[ $dx_target_os != "android" ]] then
+  echo "[FATAL] IOS is not supported yet"
+  exit 1
+fi
 
 print_exec "dx $cargo_action -p mobile --$dx_target_os --target $cargo_target_triple $cargo_profile"
 
@@ -42,20 +49,19 @@ if [[ $dx_target_os == "android" ]] then
   print_exec "find $gradle_project_path/app/src/main/res/mipmap-* -name *.png -type f -delete"
 fi
 
+# FIXME: IOS support
 dioxus_output_path="$cargo_root/target/dx/Cybermap/$cargo_profile_name/android/app/app/build/outputs/apk/debug"
 
 mobile_build_dir="$cybermap_build_root/mobile"
 
-if [[ -d $mobile_build_dir ]] then
-  echo -e  "\nRemoving old output dir"
-  print_exec "rm -r $mobile_build_dir/*"
+if [[ ! -d $mobile_build_dir ]] then
+  echo -e "\nCreating output dir"
+  print_exec "mkdir -p $mobile_build_dir"
 fi
 
-echo -e "\nCreating output dir"
-print_exec "mkdir -p $mobile_build_dir"
+echo -e "\nCopying dioxus output to cybermap mobile build dir"
 
-echo -e "\nCopying dioxus output to cybermap build dir"
-
+# FIXME: IOS support
 print_exec "cp -r $dioxus_output_path/app-debug.apk $mobile_build_dir/cybermap-$cargo_target_triple.apk"
 
 echo -e "\n\e[32mCybermap mobile app for $dx_target_os has been successfully built\nOutput directory:\e[0m $mobile_build_dir"
