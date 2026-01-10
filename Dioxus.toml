@@ -2,8 +2,9 @@
 
 name = "Cybermap"
 
-# # Static files copied verbatim into the built app (set to enable, e.g. "public")
-# public_dir = "public"
+[web.wasm_opt]
+# The level wasm-opt should target. z is the smallest. 4 is the fastest.
+level = "4"
 
 [web.app]
 
@@ -11,8 +12,19 @@ name = "Cybermap"
 title = "Cybermap"
 
 [bundle]
+# Bundle identifier
 identifier = "com.bowarc"
 
+# Bundle publisher
 publisher = "Bowarc"
 
+# Bundle category
 category = "Utility"
+
+# Bundle short description
+short_description = "A map in the style of cyberpunk2077"
+
+# Bundle long description
+long_description = """
+TODO
+"""
