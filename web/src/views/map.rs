@@ -1,4 +1,9 @@
-use dioxus::{html::geometry::PixelsSize, prelude::*};
+use dioxus::{
+    core::{provide_context, use_hook, Callback, Element}, document, hooks::{to_owned, use_signal}, html::geometry::PixelsSize, prelude::{
+        asset, component, debug, dioxus_core, dioxus_elements, dioxus_signals, error, manganis, rsx, Asset
+    }, signals::{Signal, WritableExt as _}
+};
+use dioxus_sdk_geolocation::{Geolocator, PowerMode};
 use gloo_timers::future::sleep;
 use osm::{
     coord::geo::{GeoBox, GeoPoint},
@@ -9,6 +14,7 @@ use std::{rc::Rc, time::Duration};
 use ui::SvgMap;
 
 const API_URL: &str = "http://127.0.0.1:42061/overpass_api";
+const MAP_CSS: Asset = asset!("/assets/map.css");
 
 enum QueryError {
     Reqwest(reqwest::Error),
@@ -75,7 +81,63 @@ async fn query(geobox: GeoBox, url: &str) -> Result<std::rc::Rc<[NWR]>, QueryErr
 pub fn Map() -> Element {
     let screen_size = use_signal(|| None as Option<PixelsSize>);
 
+    let geolocator = use_hook(|| {
+        let geolocator = Signal::new(std::sync::Arc::new(
+            Geolocator::new(PowerMode::High).unwrap(),
+        ));
+        provide_context(geolocator)
+    });
+
     let mut osm_data = use_signal(|| None as Option<(GeoBox, Rc<[NWR]>)>);
+
+    let range_km = use_signal(|| 5.);
+
+    let mut update_data = async move || {
+        let Some(screen_size) = screen_size() else {
+            error!("Called map update data with None screen size");
+            return;
+        };
+        let current_geocords = match geolocator().get_coordinates().await {
+            Ok(coords) => coords,
+            Err(e) => {
+                error!("Failed to retrieve current geocordinates due to: {e}");
+                return;
+            }
+        };
+
+        debug!("Got coordinates: {current_geocords:?}");
+
+        let box_center = GeoPoint::new(current_geocords.latitude, current_geocords.longitude);
+        let range_km = range_km();
+        let scale_factor = range_km / screen_size.width.max(screen_size.height);
+        let box_size = (
+            screen_size.width * scale_factor,
+            screen_size.height * scale_factor,
+        );
+
+        // TODO: Redo that to make it dynamic
+        let mut retries = 0;
+        const MAX_RETRIES: u8 = 2;
+        while retries < MAX_RETRIES {
+            let geobox = GeoBox::from_center_and_size(box_center, box_size);
+            let nwr = match query(geobox, API_URL).await {
+                Ok(nwr) => nwr,
+                Err(QueryError::Reqwest(e)) => {
+                    error!("Overpass api request failled due to: {e}");
+                    retries += 1;
+                    debug!("Retrying");
+                    continue;
+                }
+                Err(QueryError::SerdeJson(e)) => {
+                    error!("Failed to decode Overpass api response due to: {e}");
+                    return;
+                }
+            };
+            debug!("Got NWR in {} tries", retries + 1);
+            osm_data.set(Some((geobox, nwr)));
+            break;
+        }
+    };
 
     let on_resize = Callback::<PixelsSize, ()>::new(move |svg_size: PixelsSize| {
         to_owned![screen_size];
@@ -90,56 +152,37 @@ pub fn Map() -> Element {
                 // Another resize event has been called, this is no longer up to date
                 return;
             }
+            update_data().await;
+        }
+    });
 
-            let box_center = GeoPoint::new(todo!(), todo!());
-            let range_km = 2.;
-            let scale_factor = range_km / svg_size.width.max(svg_size.height);
-            let box_size = (
-                svg_size.width * scale_factor,
-                svg_size.height * scale_factor,
-            );
-
-            // TODO: Redo that to make it dynamic
-            let mut retries = 0;
-            const MAX_RETRIES: u8 = 2;
-            while retries < MAX_RETRIES {
-                let geobox = GeoBox::from_center_and_size(box_center, box_size);
-                let nwr = match query(geobox, API_URL).await {
-                    Ok(nwr) => nwr,
-                    Err(QueryError::Reqwest(e)) => {
-                        error!("Overpass api request failled due to: {e}");
-                        retries += 1;
-                        debug!("Retrying");
-                        continue;
-                    }
-                    Err(QueryError::SerdeJson(e)) => {
-                        error!("Failed to decode Overpass api response due to: {e}");
-                        return;
-                    }
-                };
-                debug!("Got NWR in {} tries", retries + 1);
-                osm_data.set(Some((geobox, nwr)));
-                break;
+    let on_km_range_change = Callback::<f64, ()>::new(move |km_range: f64| {
+        to_owned![range_km];
+        async move {
+            range_km.set(km_range);
+            sleep(Duration::from_secs_f32(0.5)).await;
+            if range_km() != km_range {
+                // Another range upate event has been called, this is no longer up to date
+                return;
             }
+            update_data().await;
         }
     });
 
     rsx! {
+        document::Link { rel: "stylesheet", href: MAP_CSS }
         div {
-            // onresize: move |cx| async move { 'onresize: {
-            //     let size = match cx.data().get_content_box_size() {
-            //         Ok(size) => size,
-            //         Err(e) => {
-            //             error!("Failed to unpack wrapper onresize event due to: {e}");
-            //             break 'onresize
-            //         }
-            //     };
-            //     debug!("Wrapper div RESIZED: {}x{}", size.width, size.height);
-            //     screen_size.set(Some(size));
-            //     if osm_data().is_none() && size.width != 0. && size.height != 0.{
-            //         on_resize(size);
-            //     }
-            // }},
+            input {
+                id: "km_range_input",
+                type: "range",
+                min: 0.5,
+                max: 3.,
+                step: 0.1,
+
+                oninput: move |cx| async move {
+                    on_km_range_change(cx.data.value().parse::<f64>().unwrap())
+                }
+            }
 
             SvgMap {
                 osm_data: osm_data(),

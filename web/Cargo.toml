@@ -4,14 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-dioxus = { workspace = true, features = ["router"] }
+dioxus = { workspace = true, features = ["router", "web"] }
 ui = { workspace = true }
 osm = { workspace = true }
 serde_json.workspace = true
 reqwest = { workspace = true, features = ["json", "query"] }
-
 gloo-timers = "0.3.0"
-
-[features]
-default = ["web"]
-web = ["dioxus/web"]
+dioxus-sdk-geolocation = "0.7.0"

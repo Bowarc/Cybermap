@@ -1,0 +1,12 @@
+#km_range_input{
+  background-color: red;
+  display: absolute;
+  right: 20px;
+  float: right;
+
+  writing-mode: vertical-lr;
+  direction: rtl;
+  appearance: slider-vertical;
+  width: 16px;
+  vertical-align: bottom;
+}
