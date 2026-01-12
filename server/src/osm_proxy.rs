@@ -10,6 +10,8 @@ mod cache;
 use api_server::ServerPool;
 use cache::Cache;
 
+use crate::rejection;
+
 const USER_AGENT: &str = "Cybermap/0.1.0 (linux; x86_64)";
 
 const API_SERVERS: &[&str] = &[
@@ -43,14 +45,23 @@ pub fn build_route() -> impl Filter<Extract = impl Reply, Error = Rejection> + C
     warp::path("overpass_api")
         .and(warp::get())
         // Naïve 'security' to make sure bots won't trigger an api call by spamming random sht
-        .and(warp::filters::header::exact("cybermap", "8b3d00bf-b0cc-4a7d-b389-9c0e9d0688f8"))
+        .and(warp::filters::header::exact(
+            "cybermap",
+            "8b3d00bf-b0cc-4a7d-b389-9c0e9d0688f8",
+        ))
         .and(warp::query::query::<OSMQuery>().map(|query: OSMQuery| query.data))
         .and(warp_rate_limit::with_rate_limit(rate_limiter_config))
         .and(warp::any().map(move || client.clone()))
         .and(warp::any().map(move || cache.clone()))
         .and(warp::any().map(move || api_pool.clone()))
         .and_then(handle_request)
-    // .recover(handle_rejection)
+        .recover(rejection::missing_header)
+        .recover(rejection::invalid_header)
+        .recover(rejection::invalid_query)
+        .recover(rejection::rate_limit)
+
+        .recover(rejection::proxy)
+        .recover(rejection::not_found)
 }
 
 #[derive(Debug)]
