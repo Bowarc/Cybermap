@@ -1,4 +1,4 @@
-use warp::reject::{InvalidHeader, InvalidQuery, MissingHeader};
+use warp::reject::{InvalidHeader, InvalidQuery, MethodNotAllowed, MissingHeader};
 
 use {
     reqwest::StatusCode,
@@ -38,6 +38,19 @@ pub async fn proxy(rejection: Rejection) -> Result<impl Reply, Rejection> {
             warp::reply::with_status("Bad request", StatusCode::BAD_REQUEST).into_response()
         }
     })
+}
+
+pub async fn method_not_allowed(rejection: Rejection) -> Result<impl Reply, Rejection>{
+    if rejection.find::<MethodNotAllowed>().is_none() {
+        return Err(rejection);
+    };
+
+    Ok(warp::reply::with_status(
+        "Method not allowed",
+        StatusCode::METHOD_NOT_ALLOWED,
+    )
+    .into_response())
+    
 }
 
 pub async fn missing_header(rejection: Rejection) -> Result<impl Reply, Rejection> {

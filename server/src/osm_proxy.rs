@@ -56,6 +56,7 @@ pub fn build_route() -> impl Filter<Extract = impl Reply, Error = Rejection> + C
         .and(warp::any().map(move || cache.clone()))
         .and(warp::any().map(move || api_pool.clone()))
         .and_then(handle_request)
+        .recover(rejection::method_not_allowed)
         .recover(rejection::missing_header)
         .recover(rejection::invalid_header)
         .recover(rejection::invalid_query)
