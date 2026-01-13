@@ -1,7 +1,13 @@
 use dioxus::{
-    core::{provide_context, use_hook, Callback, Element}, document, hooks::{to_owned, use_signal}, html::geometry::PixelsSize, prelude::{
-        asset, component, debug, dioxus_core, dioxus_elements, dioxus_signals, error, manganis, rsx, Asset
-    }, signals::{Signal, WritableExt as _}
+    core::{Callback, Element, provide_context, use_hook},
+    document,
+    hooks::{to_owned, use_signal},
+    html::geometry::PixelsSize,
+    prelude::{
+        Asset, asset, component, debug, dioxus_core, dioxus_elements, dioxus_signals, error,
+        manganis, rsx,
+    },
+    signals::{Signal, WritableExt as _},
 };
 use dioxus_sdk_geolocation::{Geolocator, PowerMode};
 use gloo_timers::future::sleep;
@@ -21,7 +27,7 @@ enum QueryError {
     SerdeJson(serde_json::Error),
 }
 
-async fn query(geobox: GeoBox, url: &str) -> Result<std::rc::Rc<[NWR]>, QueryError> {
+async fn query(geobox: GeoBox, url: &str) -> Result<NWR, QueryError> {
     let query = format!(
         r#"
         [out:json][timeout:360][bbox:{},{},{},{}];
@@ -88,9 +94,9 @@ pub fn Map() -> Element {
         provide_context(geolocator)
     });
 
-    let mut osm_data = use_signal(|| None as Option<(GeoBox, Rc<[NWR]>)>);
+    let mut osm_data = use_signal(|| None as Option<(GeoBox, Rc<NWR>)>);
 
-    let range_km = use_signal(|| 5.);
+    let range_km = use_signal(|| 1.);
 
     let mut update_data = async move || {
         let Some(screen_size) = screen_size() else {
@@ -134,7 +140,7 @@ pub fn Map() -> Element {
                 }
             };
             debug!("Got NWR in {} tries", retries + 1);
-            osm_data.set(Some((geobox, nwr)));
+            osm_data.set(Some((geobox, Rc::new(nwr))));
             break;
         }
     };
@@ -162,7 +168,7 @@ pub fn Map() -> Element {
             range_km.set(km_range);
             sleep(Duration::from_secs_f32(0.5)).await;
             if range_km() != km_range {
-                // Another range upate event has been called, this is no longer up to date
+                // Another range update event has been called, this is no longer up to date
                 return;
             }
             update_data().await;
@@ -178,6 +184,7 @@ pub fn Map() -> Element {
                 min: 0.5,
                 max: 3.,
                 step: 0.1,
+                value: range_km(),
 
                 oninput: move |cx| async move {
                     on_km_range_change(cx.data.value().parse::<f64>().unwrap())
