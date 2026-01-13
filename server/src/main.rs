@@ -29,17 +29,21 @@ async fn main() {
     );
 
     let proxy_route = osm_proxy::build_route();
-    let static_route = warp::get()
-        .and(warp::fs::dir("static"))
-        .recover(rejection::not_found);
+
+    let file_server = {
+        let static_dir = warp::fs::dir("static");
+
+        warp::get()
+            .and(static_dir.clone())
+            .or(warp::path::path("map")
+                .and(warp::path::end())
+                .and(static_dir))
+            .recover(rejection::not_found)
+    };
 
     debug!("Listening on http://{}:{}", ADDR.ip(), ADDR.port());
 
-    warp::serve(
-        proxy_route
-            .or(static_route)
-            .recover(rejection::unknown),
-    )
-    .run(ADDR)
-    .await;
+    warp::serve(proxy_route.or(file_server).recover(rejection::unknown))
+        .run(ADDR)
+        .await;
 }

@@ -42,8 +42,9 @@ pub fn build_route() -> impl Filter<Extract = impl Reply, Error = Rejection> + C
         ip_header: "X-Forwarded-For".to_owned(),
     };
 
-    warp::path("overpass_api")
-        .and(warp::get())
+    warp::get()
+        .and(warp::path("overpass_api"))
+        .and(warp::path::end())
         // Naïve 'security' to make sure bots won't trigger an api call by spamming random sht
         .and(warp::filters::header::exact(
             "cybermap",
