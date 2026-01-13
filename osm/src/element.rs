@@ -4,11 +4,24 @@ use std::{collections::HashMap, rc::Rc};
 pub type Tagmap = HashMap<Rc<str>, Rc<str>>;
 // type Tagmap = HashMap<String, String>;
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum NWR {
-    Node(OSMNode),
-    Way(OSMWay),
-    Relation(OSMRelation),
+// #[derive(Debug, Clone, PartialEq)]
+// pub enum NWR {
+//     Node(OSMNode),
+//     Way(OSMWay),
+//     Relation(OSMRelation),
+// }
+
+#[derive(Debug, PartialEq, Default)]
+pub struct NWR {
+    pub nodes: HashMap<u64, OSMNode>,
+    pub ways: HashMap<u64, OSMWay>,
+    // pub relations: Rc<[OSMRelation]>,
+}
+
+impl NWR {
+    pub fn total_count(&self) -> usize{
+        self.nodes.len() + self.ways.len()
+    }
 }
 
 #[derive(Debug, Clone)]

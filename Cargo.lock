@@ -3369,6 +3369,7 @@ dependencies = [
 name = "osm"
 version = "0.1.0"
 dependencies = [
+ "dioxus-logger",
  "reqwest 0.13.1",
  "serde",
  "serde_json",
