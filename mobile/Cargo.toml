@@ -8,12 +8,8 @@ name = "Cybermap"
 path = "src/main.rs"
 
 [dependencies]
-dioxus = { workspace = true, features = ["router"] }
+dioxus = { workspace = true, features = ["router", "mobile"] }
 ui = { workspace = true }
 osm = { workspace = true }
 serde_json.workspace = true
 reqwest = { workspace = true, features = ["json", "query"] }
-
-[features]
-default = ["mobile"]
-mobile = ["dioxus/mobile"]

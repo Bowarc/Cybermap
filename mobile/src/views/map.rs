@@ -14,7 +14,7 @@ const API_URL: &str = "http://10.0.2.2:42061/overpass_api";
 //     SerdeJson(serde_json::Error),
 // }
 
-async fn query(geobox: GeoBox, url: &str) -> std::rc::Rc<[NWR]> {
+async fn query(geobox: GeoBox, url: &str) -> NWR {
     let query = format!(
         r#"
             [out:json][timeout:360][bbox:{},{},{},{}];
@@ -85,7 +85,7 @@ async fn query(geobox: GeoBox, url: &str) -> std::rc::Rc<[NWR]> {
 pub fn Map() -> Element {
     let screen_size = use_signal(|| None as Option<PixelsSize>);
 
-    let mut osm_data = use_signal(|| None as Option<(GeoBox, Rc<[NWR]>)>);
+    let mut osm_data = use_signal(|| None as Option<(GeoBox, Rc<NWR>)>);
 
     let on_resize = Callback::<PixelsSize, ()>::new(move |svg_size: PixelsSize| {
         to_owned![screen_size];
@@ -105,7 +105,7 @@ pub fn Map() -> Element {
             // TODO: Redo that to make it dynamic
             let geobox = GeoBox::from_center_and_size(box_center, box_size);
             let nwr = query(geobox, API_URL).await;
-            osm_data.set(Some((geobox, nwr)));
+            osm_data.set(Some((geobox, Rc::new(nwr))));
         }
     });
 
