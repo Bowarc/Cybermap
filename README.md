@@ -19,22 +19,38 @@ Webserver - [Warp](https://docs.rs/warp/latest/warp/) if I can, else i'll go bac
 
 ## Roadmap  
 - [ ] Webserver  
-   - [ ] Serving the webapp  
-   - [x] proxy for anonymising map queries  
-
+   - [x] Serving the webapp  
+   - [x] proxy for anonymising map queries
+   - [ ] Map webapp endpoints to /
 - [ ] UI
-   - [ ] Map display at startup
-   - [ ] The ability to move around  
-   - [ ] Zooms  
+   - [ ] Map display
+      - [ ] Roads
+         - [x] Outlines
+         - [ ] Merge roads that use the same nodes
+      - [ ] Buildings
+         - [ ] 3D ?
+      - [ ] Terain
+      - [ ] Water
    - [ ] Cyberpunk-like icons for points of interest  
-   - [ ] Pathfinding ?  
-
-- [ ] Mobile  
+   - [ ] Settings ?
+   - [ ] Pathfinding ?
+- [ ] Mobile
    - [ ] UI implementation  
-
+   - [ ] Geolocalisation
+   - [x] Retrieving OSM data from server
+   - [ ] Move around  
 - [ ] Web  
-   - [ ] UI implementation  
-   - [ ] The ability to download the mobile apps  
+   - [ ] UI implementation
+   - [x] Geolocalisation
+   - [x] Retrieving OSM data from server
+   - [x] React to window resizing
+   - [ ] Move around  
+   - [ ] Download the mobile apps
+- [x] OSM
+   - [x] Parse OSM api response
+   - [x] OSM types (nwr)
+   - [x] Geographical types (Position, Boxes)
+   
 
 ## Installation  
 TODO  
