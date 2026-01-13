@@ -19,7 +19,7 @@ pub struct NWR {
 }
 
 impl NWR {
-    pub fn total_count(&self) -> usize{
+    pub fn total_count(&self) -> usize {
         self.nodes.len() + self.ways.len()
     }
 }

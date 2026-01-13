@@ -111,7 +111,7 @@ impl GeoBox {
             lon: self.max.lon,
         }) * 2000.)
             .round()
-            /1000.
+            / 1000.
     }
 
     /// Rounded at 0.001

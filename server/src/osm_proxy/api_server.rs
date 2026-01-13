@@ -41,7 +41,7 @@ impl ServerPool {
             .write()
             .await
             .iter_mut()
-            .find(|server| now - server.last_request  > self.cooldown)
+            .find(|server| now - server.last_request > self.cooldown)
             .map(|server| {
                 server.last_request = now;
                 server.url.clone()
