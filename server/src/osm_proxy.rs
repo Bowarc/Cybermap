@@ -59,9 +59,7 @@ pub fn build_route() -> impl Filter<Extract = impl Reply, Error = Rejection> + C
         .recover(rejection::invalid_header)
         .recover(rejection::invalid_query)
         .recover(rejection::rate_limit)
-
         .recover(rejection::proxy)
-        .recover(rejection::not_found)
 }
 
 #[derive(Debug)]
