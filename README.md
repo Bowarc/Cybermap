@@ -26,8 +26,10 @@ Webserver - [Warp](https://docs.rs/warp/latest/warp/) if I can, else i'll go bac
    - [ ] Map display
       - [ ] Roads
          - [x] Outlines
+         - [ ] Dynamic width depending on the road type
          - [ ] Merge roads that use the same nodes
       - [ ] Buildings
+         - [x] Basic
          - [ ] 3D ?
       - [ ] Terain
       - [ ] Water

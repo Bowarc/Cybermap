@@ -8,9 +8,17 @@ use crate::svg_element::SVGElement;
 const COLOR: &str = "rgba(0, 255, 255, 0.33)";
 const OUTLINE_COLOR: &str = "rgba(0, 255, 255, 1)";
 
+// FIXME:
+// Not all roads have the same width,
+// Using a fixed size (8m here) is cusing some small inaccuracies in relation to other unrelated elements (buildings)
 pub const WAY_WIDTH_KM: f64 = 0.008;
+
 const WAY_BORDER_WIDTH_KM: f64 = 0.002;
 
+// TODO:
+// Find a way to merge roads into others
+// Currently they ignore each others and overlap
+// It's bad
 pub fn gen_way(
     way: &OSMWay,
     roads: &mut Vec<SVGElement>,
@@ -20,7 +28,7 @@ pub fn gen_way(
     let mut outlines: [Vec<ScreenPoint>; 2] = Default::default();
 
     let way_width_scaled = WAY_WIDTH_KM * scale_km;
-    let way_border_distance_scaled = way_width_scaled * 0.5;
+    let way_width_scaled_half = way_width_scaled * 0.5;
 
     for i in 1..way.nodes.len() + 1 {
         let Some(last) = way.nodes.get(i - 1) else {
@@ -51,12 +59,12 @@ pub fn gen_way(
             [
                 rotate_pt(
                     &last_pt,
-                    way_border_distance_scaled,
+                    way_width_scaled_half,
                     line_angle + 90f64.to_radians(),
                 ),
                 rotate_pt(
                     &current_pt,
-                    way_border_distance_scaled,
+                    way_width_scaled_half,
                     line_angle + 90f64.to_radians(),
                 ),
             ],
@@ -66,12 +74,12 @@ pub fn gen_way(
             [
                 rotate_pt(
                     &last_pt,
-                    way_border_distance_scaled,
+                    way_width_scaled_half,
                     line_angle - 90f64.to_radians(),
                 ),
                 rotate_pt(
                     &current_pt,
-                    way_border_distance_scaled,
+                    way_width_scaled_half,
                     line_angle - 90f64.to_radians(),
                 ),
             ],
@@ -123,16 +131,6 @@ pub fn gen_way(
             fill: String::from("none"),
         });
     }
-}
-
-pub fn line_line(l1: &[&ScreenPoint; 2], l2: &[&ScreenPoint; 2]) -> bool {
-    fn ccw(a: &ScreenPoint, b: &ScreenPoint, c: &ScreenPoint) -> bool {
-        (c.y - a.y) * (b.x - a.x) > (b.y - a.y) * (c.x - a.x)
-    }
-    fn intersect(a: &ScreenPoint, b: &ScreenPoint, c: &ScreenPoint, d: &ScreenPoint) -> bool {
-        ccw(a, c, d) != ccw(b, c, d) && ccw(a, b, c) != ccw(a, b, d)
-    }
-    intersect(l1[0], l1[1], l2[0], l2[1])
 }
 
 pub fn line_intersection(l1: &[&ScreenPoint; 2], l2: &[&ScreenPoint; 2]) -> Option<ScreenPoint> {

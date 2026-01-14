@@ -53,6 +53,11 @@ async fn query(geobox: GeoBox, url: &str) -> Result<NWR, QueryError> {
         );
         (._;>;);
         out;
+        (
+            way["building"];
+        );
+        (._;>;);
+        out;
         "#,
         geobox.min().lat(),
         geobox.min().lon(),
