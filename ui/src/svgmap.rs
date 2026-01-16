@@ -1,17 +1,11 @@
 use std::rc::Rc;
 
 use dioxus::{html::geometry::PixelsSize, prelude::*};
-use osm::{
-    coord::{
-        geo::{GeoBox, GeoPoint},
-        screen::ScreenPoint,
-    },
-    element::NWR,
-};
+use osm::{coord::geo::GeoBox, element::NWR};
 
 use crate::svg_element::SVGElement;
 
-const MAP_CSS: Asset = asset!("/assets/styling/map.css");
+const MAP_CSS: Asset = asset!("/assets/svgmap.css");
 const SVG_ID: &str = "map-svg";
 
 #[component]

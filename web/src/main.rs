@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use ui::Navbar;
-use views::{Blog, Home, Map};
+use views::{Home, Map};
 
 mod views;
 
@@ -11,14 +11,16 @@ enum Route {
     #[layout(WebNavbar)]
     #[route("/")]
     Home {},
-    #[route("/blog/:id")]
-    Blog { id: i32 },
     #[route("/map")]
     Map {},
 }
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const MAIN_CSS: Asset = asset!("/assets/main.css");
+const CYBERPUNK_CSS: Asset = asset!("/assets/cyberpunk.css");
+const _: Asset = asset!("/assets/fonts/BlenderProBook.woff2");
+const _: Asset = asset!("/assets/fonts/Cyberpunk.otf");
+const _: Asset = asset!("/assets/fonts/Oxanium.woff2");
 
 fn main() {
     dioxus::logger::init(dioxus::logger::tracing::Level::DEBUG).expect("failed to init logger");
@@ -28,19 +30,16 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    // Build cool things ✌️
 
     rsx! {
-        // Global app resources
         document::Link { rel: "icon", href: FAVICON }
         document::Link { rel: "stylesheet", href: MAIN_CSS }
+        document::Link { rel: "stylesheet", href: CYBERPUNK_CSS }
 
         Router::<Route> {}
     }
 }
 
-/// A web-specific Router around the shared `Navbar` component
-/// which allows us to use the web-specific `Route` enum.
 #[component]
 fn WebNavbar() -> Element {
     rsx! {
@@ -48,10 +47,6 @@ fn WebNavbar() -> Element {
             Link {
                 to: Route::Home {},
                 "Home"
-            }
-            Link {
-                to: Route::Blog { id: 1 },
-                "Blog"
             }
             Link {
                 to: Route::Map {},
