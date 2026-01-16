@@ -1,12 +1,19 @@
 #km_range_input{
-  background-color: red;
-  display: absolute;
-  right: 20px;
   float: right;
+  margin-right: 0.5%;
 
-  writing-mode: vertical-lr;
-  direction: rtl;
-  appearance: slider-vertical;
-  width: 16px;
-  vertical-align: bottom;
+  /* writing-mode: vertical-lr; */
+  /* direction: rtl; */
+  /* width: 16px; */
+
+  cursor: pointer !important;
+  box-shadow: 1px 1px 1px #000000 !important;
+  background: #3071A9 !important;
+  border-radius: 5px !important;
+  border: 1px solid #000000 !important;
+}
+
+#map-root {
+  background-color: transparent;
+  color: var(--yellow)
 }

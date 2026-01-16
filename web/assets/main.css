@@ -1,6 +1,15 @@
-body {
-    background-color: #0f1116;
-    color: #ffffff;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin: 20px;
+/* body { */
+    /* background-color: #0f1116; */
+    /* color: #ffffff; */
+    /* font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; */
+    /* margin: 20px; */
+/* } */
+
+
+footer {
+    bottom: 0px !important;
+    left: 0px !important;
+    width: 100% !important;
+    position: fixed !important;
+    z-index: 9999 !important;
 }
