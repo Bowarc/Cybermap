@@ -29,12 +29,10 @@ pub fn gen_way(
 
     let way_width_scaled = WAY_WIDTH_KM * scale_km;
     let way_width_scaled_half = way_width_scaled * 0.5;
-
     for i in 1..way.nodes.len() + 1 {
         let Some(last) = way.nodes.get(i - 1) else {
             break;
         };
-
         let current = match way.nodes.get(i) {
             Some(current) => current,
             // Circular ways
@@ -194,6 +192,9 @@ fn clamp_and_push(mut current_line: [ScreenPoint; 2], others: &mut Vec<ScreenPoi
     // len - 2, len - 3
     // len - 1, len - 2
     for line_index in (1..=5).rev() {
+        if others_len < line_index + 1 {
+            continue;
+        }
         let Ok(previous_line) =
             others.get_disjoint_mut([others_len - line_index, others_len - (line_index + 1)])
         else {
