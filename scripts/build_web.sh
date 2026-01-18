@@ -12,7 +12,9 @@ source "$scripts_dir/shared.sh"
 
 parse_cargo_action "$@"
 
-print_exec "dx $cargo_action -p web --release"
+# Debug symbols
+# https://github.com/DioxusLabs/dioxus/issues/5119
+print_exec "dx $cargo_action -p web --release --debug-symbols=false"
 
 # If you're not building, your adventure stops here
 if [[ $cargo_action != "build" ]] then
