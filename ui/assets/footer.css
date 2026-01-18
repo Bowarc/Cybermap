@@ -1,0 +1,7 @@
+footer {
+    bottom: 0px !important;
+    left: 0px !important;
+    width: 100% !important;
+    position: fixed !important;
+    z-index: 9999 !important;
+}

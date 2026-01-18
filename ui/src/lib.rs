@@ -5,7 +5,10 @@ pub use hero::Hero;
 mod navbar;
 pub use navbar::Navbar;
 
-pub mod svgmap;
+mod svgmap;
 pub use svgmap::SvgMap;
+
+mod footer;
+pub use footer::Footer;
 
 mod svg_element;

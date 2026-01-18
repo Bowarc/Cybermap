@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
-use ui::Navbar;
-use views::{Blog, Home, Map};
+use ui::{Footer, Navbar};
+use views::{Home, Map};
 
 mod views;
 
@@ -11,13 +11,17 @@ enum Route {
     #[layout(MobileNavbar)]
     #[route("/")]
     Home {},
-    #[route("/blog/:id")]
-    Blog { id: i32 },
     #[route("/map")]
     Map {},
 }
 
 const MAIN_CSS: Asset = asset!("/assets/main.css");
+const CYBERPUNK_CSS: Asset = asset!("/assets/cyberpunk.css");
+
+const _: Asset = asset!("/assets/BlenderProBook.woff2", AssetOptions::builder().with_hash_suffix(false));
+const _: Asset = asset!("/assets/Cyberpunk.otf", AssetOptions::builder().with_hash_suffix(false));
+const _: Asset = asset!("/assets/Oxanium.woff2", AssetOptions::builder().with_hash_suffix(false));
+
 
 fn main() {
     dioxus::logger::init(dioxus::logger::tracing::Level::DEBUG).expect("failed to init logger");
@@ -27,13 +31,13 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    // Build cool things ✌️
 
     rsx! {
-        // Global app resources
         document::Link { rel: "stylesheet", href: MAIN_CSS }
+        document::Link { rel: "stylesheet", href: CYBERPUNK_CSS }
 
         Router::<Route> {}
+        Footer { }
     }
 }
 
@@ -72,10 +76,6 @@ fn MobileNavbar() -> Element {
             Link {
                 to: Route::Home {},
                 "Home"
-            }
-            Link {
-                to: Route::Blog { id: 1 },
-                "Blog"
             }
             Link {
                 to: Route::Map {},

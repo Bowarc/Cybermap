@@ -10,7 +10,7 @@ use dioxus::{
     signals::{Signal, WritableExt as _},
 };
 use dioxus_sdk_geolocation::{Geolocator, PowerMode};
-use gloo_timers::future::sleep;
+use dioxus_sdk_time::sleep;
 use osm::{
     coord::geo::{GeoBox, GeoPoint},
     element::NWR,
@@ -182,7 +182,10 @@ pub fn Map() -> Element {
 
     rsx! {
         document::Link { rel: "stylesheet", href: MAP_CSS }
+
         div {
+            id: "map-root",
+
             input {
                 id: "km_range_input",
                 type: "range",

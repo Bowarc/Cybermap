@@ -34,6 +34,8 @@ pub fn SvgMap(osm_data: Option<(GeoBox, Rc<NWR>)>, onresize: Callback<PixelsSize
         document::Link { rel: "stylesheet", href: MAP_CSS }
 
         div {
+            style: "width: fit-content;",
+            class: "cyber-razor-bottom cyber-glitch-2 bg-yellow fg-black",
             "Svg map size: {svg_dimensions():.1?}"
             br {}
             "Mouse: {mouse_pos:.1?}"

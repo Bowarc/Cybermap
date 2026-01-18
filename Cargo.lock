@@ -1321,6 +1321,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "dioxus-sdk-time"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80c25ae93a3f72e734873b97fbd09d9b1b6adff97205fb0ffd8543e3564fb78e"
+dependencies = [
+ "dioxus",
+ "futures",
+ "gloo-timers",
+ "tokio",
+]
+
+[[package]]
 name = "dioxus-signals"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3025,6 +3037,7 @@ name = "mobile"
 version = "0.1.0"
 dependencies = [
  "dioxus",
+ "dioxus-sdk-time",
  "osm",
  "reqwest 0.13.1",
  "serde_json",
@@ -5598,7 +5611,7 @@ version = "0.1.0"
 dependencies = [
  "dioxus",
  "dioxus-sdk-geolocation",
- "gloo-timers",
+ "dioxus-sdk-time",
  "osm",
  "reqwest 0.13.1",
  "serde_json",
