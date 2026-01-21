@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
-use ui::{Footer, Navbar};
-use views::{Home, Map};
+use ui::{Footer, Navbar, Map, UiResources};
+use views::{Home};
 
 mod views;
 
@@ -15,14 +15,6 @@ enum Route {
     Map {},
 }
 
-const MAIN_CSS: Asset = asset!("/assets/main.css");
-const CYBERPUNK_CSS: Asset = asset!("/assets/cyberpunk.css");
-
-const _: Asset = asset!("/assets/BlenderProBook.woff2", AssetOptions::builder().with_hash_suffix(false));
-const _: Asset = asset!("/assets/Cyberpunk.otf", AssetOptions::builder().with_hash_suffix(false));
-const _: Asset = asset!("/assets/Oxanium.woff2", AssetOptions::builder().with_hash_suffix(false));
-
-
 fn main() {
     dioxus::logger::init(dioxus::logger::tracing::Level::DEBUG).expect("failed to init logger");
     debug!("Init");
@@ -33,9 +25,7 @@ fn main() {
 fn App() -> Element {
 
     rsx! {
-        document::Link { rel: "stylesheet", href: MAIN_CSS }
-        document::Link { rel: "stylesheet", href: CYBERPUNK_CSS }
-
+        UiResources {  }
         Router::<Route> {}
         Footer { }
     }

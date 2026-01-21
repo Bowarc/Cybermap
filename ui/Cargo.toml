@@ -6,4 +6,8 @@ edition = "2024"
 [dependencies]
 dioxus = { workspace = true }
 osm = { workspace = true }
+serde_json.workspace = true
+reqwest = { workspace = true, features = ["json", "query"] }
+dioxus-sdk-geolocation = "0.7.0"
+dioxus-sdk-time = "0.7.0"
 # wasm-bindgen = "0.2.106"

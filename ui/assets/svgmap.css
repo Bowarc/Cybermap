@@ -5,4 +5,7 @@
   /* right: 0px; */
   position: absolute;
   z-index: -1;
+
+  /* TODO: change that */
+  background-color: #0B0E14;
 }
