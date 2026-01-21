@@ -1,7 +1,9 @@
+use crate::SvgMap;
+use crate::api;
 use dioxus::{
     core::{Callback, Element, provide_context, use_hook},
     document,
-    hooks::{to_owned, use_signal},
+    hooks::{to_owned, use_memo, use_signal},
     html::geometry::PixelsSize,
     prelude::{
         Asset, asset, component, debug, dioxus_core, dioxus_elements, dioxus_signals, error,
@@ -15,32 +17,44 @@ use osm::{
     coord::geo::{GeoBox, GeoPoint},
     element::NWR,
 };
-use std::{rc::Rc, time::Duration};
-use crate::SvgMap;
-use crate::api;
+use std::{rc::Rc, sync::Arc, time::Duration};
 
 const API_URL: &str = "http://127.0.0.1:42061/overpass_api";
 const MAP_CSS: Asset = asset!("/assets/map.css");
 
-#[component]
-pub fn Map() -> Element {
-    let screen_size = use_signal(|| None as Option<PixelsSize>);
+#[derive(Clone, Copy, PartialEq)]
+pub struct OsmSignalBundle {
+    osm_data: Signal<Option<(GeoBox, Rc<NWR>)>>,
+    range_km: Signal<f64>,
+    screen_size: Signal<Option<PixelsSize>>,
+    geolocator: Signal<Arc<Geolocator>>,
+}
 
-    let geolocator = use_hook(|| {
-        let geolocator = Signal::new(std::sync::Arc::new(
-            Geolocator::new(PowerMode::High).unwrap(),
-        ));
-        provide_context(geolocator)
-    });
+impl OsmSignalBundle {
+    pub fn osm_data(&self) -> Option<(GeoBox, Rc<NWR>)> {
+        (self.osm_data)()
+    }
 
-    let mut osm_data = use_signal(|| None as Option<(GeoBox, Rc<NWR>)>);
+    pub async fn set_range(&mut self, new_range: f64) {
+        if new_range == (self.range_km)() {
+            return;
+        }
 
-    let range_km = use_signal(|| 1.);
+        self.range_km.set(new_range);
+        self.update().await
+    }
+    pub async fn set_screen_size(&mut self, new_screen_size: PixelsSize) {
+        if Some(new_screen_size) == (self.screen_size)() {
+            return;
+        }
+        self.screen_size.set(Some(new_screen_size));
+        self.update().await
+    }
 
-    let mut update_data_debounced = async move || {
+    pub async fn update(&mut self) {
         // custom 'debounce' system
         {
-            let dependencies = || (screen_size(), range_km());
+            let dependencies = || ((self.screen_size)(), (self.range_km)());
 
             // Everything that his function depends on
             let init_data = dependencies();
@@ -53,11 +67,11 @@ pub fn Map() -> Element {
         }
         error!("Debounce test succeded, continuing");
 
-        let Some(screen_size) = screen_size() else {
+        let Some(screen_size) = (self.screen_size)() else {
             error!("Called map update data with None screen size");
             return;
         };
-        let current_geocords = match geolocator().get_coordinates().await {
+        let current_geocords = match (self.geolocator)().get_coordinates().await {
             Ok(coords) => coords,
             Err(e) => {
                 error!("Failed to retrieve current geocordinates due to: {e}");
@@ -69,7 +83,7 @@ pub fn Map() -> Element {
 
         let box_center = GeoPoint::new(current_geocords.latitude, current_geocords.longitude);
         let box_size = {
-            let range_km = range_km();
+            let range_km = (self.range_km)();
             let scale_factor = range_km / screen_size.width.max(screen_size.height);
             (
                 screen_size.width * scale_factor,
@@ -79,28 +93,26 @@ pub fn Map() -> Element {
         let geobox = GeoBox::from_center_and_size(box_center, box_size);
 
         if let Some(nwr) = api::query_with_retries(geobox, API_URL, 2).await {
-            osm_data.set(Some((geobox, Rc::new(nwr))));
+            (self.osm_data).set(Some((geobox, Rc::new(nwr))));
         }
-    };
+    }
+}
 
-    let on_resize = Callback::<PixelsSize, ()>::new(move |svg_size: PixelsSize| {
-        to_owned![screen_size];
-        async move {
-            screen_size.set(Some(svg_size));
-            debug!("Callback: {svg_size:?}");
-            debug!("Set screen size: {:?}", screen_size());
-
-            update_data_debounced().await;
-        }
+#[component]
+pub fn Map() -> Element {
+    let osm_data = use_signal(|| None as Option<(GeoBox, Rc<NWR>)>);
+    let range_km = use_signal(|| 1.);
+    let screen_size = use_signal(|| None as Option<PixelsSize>);
+    let geolocator = use_hook(|| {
+        let geolocator = Signal::new(Arc::new(Geolocator::new(PowerMode::High).unwrap()));
+        provide_context(geolocator)
     });
 
-    let on_km_range_change = Callback::<f64, ()>::new(move |km_range: f64| {
-        to_owned![range_km];
-        async move {
-            range_km.set(km_range);
-
-            update_data_debounced().await;
-        }
+    let mut osm_data_signal_bundle = use_hook(|| OsmSignalBundle {
+        osm_data,
+        range_km,
+        screen_size,
+        geolocator,
     });
 
     rsx! {
@@ -118,13 +130,12 @@ pub fn Map() -> Element {
                 value: range_km(),
 
                 oninput: move |cx| async move {
-                    on_km_range_change(cx.data.value().parse::<f64>().unwrap())
+                    osm_data_signal_bundle.set_range(cx.data.value().parse::<f64>().unwrap()).await;
                 }
             }
 
             SvgMap {
-                osm_data: osm_data(),
-                onresize: on_resize
+                osm_data_signal_bundle
             },
         }
     }

@@ -1,7 +1,4 @@
-use std::rc::Rc;
-
 use dioxus::{html::geometry::PixelsSize, prelude::*};
-use osm::{coord::geo::GeoBox, element::NWR};
 
 use crate::svg_element::SVGElement;
 
@@ -9,7 +6,7 @@ const MAP_CSS: Asset = asset!("/assets/svgmap.css");
 const SVG_ID: &str = "map-svg";
 
 #[component]
-pub fn SvgMap(osm_data: Option<(GeoBox, Rc<NWR>)>, onresize: Callback<PixelsSize, ()>) -> Element {
+pub fn SvgMap(osm_data_signal_bundle: crate::map::OsmSignalBundle) -> Element {
     let mut shapes = use_signal(Vec::<SVGElement>::new);
 
     let mut svg_dimensions = use_signal(|| None as Option<PixelsSize>);
@@ -17,7 +14,7 @@ pub fn SvgMap(osm_data: Option<(GeoBox, Rc<NWR>)>, onresize: Callback<PixelsSize
     let mut mouse_pos = use_signal(|| (0., 0.));
 
     if let Some(size) = svg_dimensions()
-        && let Some((geobox, nwr)) = osm_data
+        && let Some((geobox, nwr)) = osm_data_signal_bundle.osm_data()
     {
         debug!(
             "OSMData size: {} for a box of {}x{} km",
@@ -69,7 +66,7 @@ pub fn SvgMap(osm_data: Option<(GeoBox, Rc<NWR>)>, onresize: Callback<PixelsSize
                 };
                 debug!("SVGMAP RESIZED: {}x{}", size.width, size.height);
                 svg_dimensions.set(Some(size));
-                onresize(size);
+                osm_data_signal_bundle.set_screen_size(size).await;
             }},
 
             for shape in shapes.iter(){{
