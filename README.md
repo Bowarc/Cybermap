@@ -8,7 +8,13 @@ Working build system for Web and Android(arm64 and amd64)
 
 IOS is not planned for now, I don't use any apple product so I don't really care atm  
 
-The app is just the default dioxus interface  
+The web app is able to display osm roads and buildings in the style of cyberpunk's map*  
+Also got a mobile app (for android) that has the same capabilities  
+
+Got a proxy server over OSM to fetch the data and rate limit across users  
+The server also serves the webapp  
+
+*The map display needs a bit of rework but it's fine for now
 
 ## Stack
 Rust only if possible (ofc java gradle for the apk but im not writing it)  
@@ -55,5 +61,5 @@ Webserver - [Warp](https://docs.rs/warp/latest/warp/) if I can, else i'll go bac
    
 
 ## Installation  
-TODO  
+Still a big TODO  
 Hopefully it will be possible through the webapp or github releases  
