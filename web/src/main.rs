@@ -1,7 +1,5 @@
 use dioxus::prelude::*;
-
-use ui::{Footer, Navbar, Map, UiResources};
-use views::{Home};
+use ui::{Footer, Map, Navbar, UiResources};
 
 mod views;
 
@@ -10,8 +8,6 @@ mod views;
 enum Route {
     #[layout(WebNavbar)]
     #[route("/")]
-    Home {},
-    #[route("/map")]
     Map {},
 }
 
@@ -30,7 +26,7 @@ fn main() {
 fn App() -> Element {
     rsx! {
         document::Link { rel: "icon", href: FAVICON }
-        
+
         UiResources {  }
         Router::<Route> {}
         Footer { }
@@ -41,10 +37,6 @@ fn App() -> Element {
 fn WebNavbar() -> Element {
     rsx! {
         Navbar {
-            Link {
-                to: Route::Home {},
-                "Home"
-            }
             Link {
                 to: Route::Map {},
                 "Map"

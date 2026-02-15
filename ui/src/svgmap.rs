@@ -1,4 +1,5 @@
 use dioxus::{html::geometry::PixelsSize, prelude::*};
+use dioxus_elements::geometry::WheelDelta;
 
 use crate::svg_element::SVGElement;
 
@@ -48,6 +49,14 @@ pub fn SvgMap(osm_data_signal_bundle: crate::map::OsmSignalBundle) -> Element {
                 // debug!("Mouse move");
                 let coords = event.data.client_coordinates();
                 mouse_pos.set((coords.x, coords.y));
+            },
+            onwheel: move |event: Event<WheelData>| async move {
+                let WheelDelta::Lines(wheel_delta_vector) = event.data.delta() else{
+                    error!("Scroll data not of the 'Lines' variant: {:?}", event.data.delta());
+                    return;
+                };
+                let v = wheel_delta_vector.y;
+                osm_data_signal_bundle.set_range(osm_data_signal_bundle.range_km() + v * 0.01).await;
             },
 
             // Mobile

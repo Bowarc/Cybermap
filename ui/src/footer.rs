@@ -11,7 +11,7 @@ pub fn Footer() -> Element {
         document::Link{ rel:"stylesheet", href:FOOTER_CSS},
 
         footer {
-            class:"cyber-razor-top bg-black fixed-bottom",
+            class:"cyber-razor-top bg-yellow fixed-bottom",
         }
     }
 }
