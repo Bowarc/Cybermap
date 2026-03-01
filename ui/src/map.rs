@@ -1,9 +1,9 @@
-use crate::SvgMap;
 use crate::api;
+use crate::{Controls, SvgMap, controls::RANGE_KM_SLIDER_RANGE};
 use dioxus::{
-    core::{Callback, Element, provide_context, use_hook},
+    core::{Element, provide_context, use_hook},
     document,
-    hooks::{to_owned, use_memo, use_signal},
+    hooks::use_signal,
     html::geometry::PixelsSize,
     prelude::{
         Asset, asset, component, debug, dioxus_core, dioxus_elements, dioxus_signals, error,
@@ -34,15 +34,22 @@ impl OsmSignalBundle {
     pub fn osm_data(&self) -> Option<(GeoBox, Rc<NWR>)> {
         (self.osm_data)()
     }
-
+    pub fn range_km(&self) -> f64 {
+        (self.range_km)()
+    }
     pub async fn set_range(&mut self, new_range: f64) {
-        if new_range == (self.range_km)() {
+        if new_range == (self.range_km)() || !RANGE_KM_SLIDER_RANGE.contains(&new_range) {
             return;
         }
 
         self.range_km.set(new_range);
         self.update().await
     }
+
+    pub fn screen_size(&self) -> Option<PixelsSize> {
+        (self.screen_size)()
+    }
+
     pub async fn set_screen_size(&mut self, new_screen_size: PixelsSize) {
         if Some(new_screen_size) == (self.screen_size)() {
             return;
@@ -53,19 +60,6 @@ impl OsmSignalBundle {
 
     pub async fn update(&mut self) {
         // custom 'debounce' system
-        {
-            let dependencies = || ((self.screen_size)(), (self.range_km)());
-
-            // Everything that his function depends on
-            let init_data = dependencies();
-            // Wait for maybe changes
-            sleep(Duration::from_secs_f32(0.5)).await;
-            if dependencies() != init_data {
-                error!("Debounce test failed, stopping");
-                return;
-            }
-        }
-        error!("Debounce test succeded, continuing");
 
         let Some(screen_size) = (self.screen_size)() else {
             error!("Called map update data with None screen size");
@@ -92,7 +86,25 @@ impl OsmSignalBundle {
         };
         let geobox = GeoBox::from_center_and_size(box_center, box_size);
 
-        if let Some(nwr) = api::query_with_retries(geobox, API_URL, 2).await {
+        if let Some((_old_box, old_data)) = self.osm_data() {
+            self.osm_data.set(Some((geobox, old_data)));
+        }
+
+        {
+            let dependencies = || ((self.screen_size)(), (self.range_km)());
+
+            // Everything that his function depends on
+            let init_data = dependencies();
+            // Wait for maybe changes
+            sleep(Duration::from_secs_f32(0.5)).await;
+            if dependencies() != init_data {
+                debug!("Debounce test failed, stopping");
+                return;
+            }
+        }
+        debug!("Debounce test succeded, continuing");
+
+        if let Some(nwr) = api::query_with_retries(geobox, API_URL, 1).await {
             (self.osm_data).set(Some((geobox, Rc::new(nwr))));
         }
     }
@@ -108,7 +120,9 @@ pub fn Map() -> Element {
         provide_context(geolocator)
     });
 
-    let mut osm_data_signal_bundle = use_hook(|| OsmSignalBundle {
+    let controls_open = use_signal(|| false);
+
+    let osm_data_signal_bundle = use_hook(|| OsmSignalBundle {
         osm_data,
         range_km,
         screen_size,
@@ -116,27 +130,21 @@ pub fn Map() -> Element {
     });
 
     rsx! {
-        document::Link { rel: "stylesheet", href: MAP_CSS }
+        document::Link { rel: "stylesheet", href: MAP_CSS },
+
 
         div {
             id: "map-root",
 
-            input {
-                id: "km_range_input",
-                type: "range",
-                min: 0.5,
-                max: 3.,
-                step: 0.1,
-                value: range_km(),
-
-                oninput: move |cx| async move {
-                    osm_data_signal_bundle.set_range(cx.data.value().parse::<f64>().unwrap()).await;
-                }
+            Controls {
+                controls_open,
+                osm_data_signal_bundle
             }
 
             SvgMap {
+                controls_open,
                 osm_data_signal_bundle
             },
-        }
+        },
     }
 }

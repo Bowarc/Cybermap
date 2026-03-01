@@ -7,7 +7,7 @@ const MAP_CSS: Asset = asset!("/assets/svgmap.css");
 const SVG_ID: &str = "map-svg";
 
 #[component]
-pub fn SvgMap(osm_data_signal_bundle: crate::map::OsmSignalBundle) -> Element {
+pub fn SvgMap(controls_open: Signal<bool>, osm_data_signal_bundle: crate::map::OsmSignalBundle) -> Element {
     let mut shapes = use_signal(Vec::<SVGElement>::new);
 
     let mut svg_dimensions = use_signal(|| None as Option<PixelsSize>);
@@ -31,18 +31,15 @@ pub fn SvgMap(osm_data_signal_bundle: crate::map::OsmSignalBundle) -> Element {
     rsx! {
         document::Link { rel: "stylesheet", href: MAP_CSS }
 
-        div {
-            style: "width: fit-content;",
-            class: "cyber-razor-bottom cyber-glitch-2 bg-yellow fg-black",
-            "Svg map size: {svg_dimensions():.1?}"
-            br {}
-            "Mouse: {mouse_pos:.1?}"
-        }
-
         svg {
             id: SVG_ID,
             width: "100%",
             height: "100%",
+
+
+            onmousedown: move |_ev|{
+                controls_open.set(false);
+            },
 
             // Web
             onmousemove: move |event| {
@@ -77,6 +74,7 @@ pub fn SvgMap(osm_data_signal_bundle: crate::map::OsmSignalBundle) -> Element {
                 svg_dimensions.set(Some(size));
                 osm_data_signal_bundle.set_screen_size(size).await;
             }},
+
 
             for shape in shapes.iter(){{
                 shape.to_element()

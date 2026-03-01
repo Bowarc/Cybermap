@@ -1,5 +1,8 @@
 pub mod api;
 
+mod home;
+pub use home::Home;
+
 mod hero;
 pub use hero::Hero;
 
@@ -11,6 +14,9 @@ pub use svgmap::SvgMap;
 
 mod footer;
 pub use footer::Footer;
+
+pub mod controls;
+pub use controls::Controls;
 
 mod svg_element;
 

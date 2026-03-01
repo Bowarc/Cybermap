@@ -19,3 +19,16 @@
   cursor: pointer;
   /* color: #91a4d2; */
 }
+.cybermap-title {
+  font-size: 1em !important;
+}
+
+.cybermap-title>.m {
+  padding-left: 0.1em;
+  letter-spacing:-.27em;
+  font-size: 1.5em;
+  font-style:normal;
+  position:relative;
+  left:-.15em
+}
+

@@ -282,6 +282,9 @@ body
     position: relative;
     border: 0;
     transition: background 0.2s;
+
+    /* I don't know why it's 0 by default, but I don't care enough to investigate */ 
+    filter: brightness(100%);  
 }
 
 /*Overriding*/

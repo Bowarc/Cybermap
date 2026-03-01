@@ -2,18 +2,15 @@ use std::time::Duration;
 
 use dioxus::prelude::{debug, error};
 use osm::{coord::geo::GeoBox, element::NWR};
-use reqwest::Client;
+use reqwest::{Client, StatusCode};
 
 pub enum QueryError {
     Reqwest(reqwest::Error),
     SerdeJson(serde_json::Error),
+    API(StatusCode),
 }
 
-pub async fn query_with_retries(
-    geobox: GeoBox,
-    url: &str,
-    max_retries: u8,
-) -> Option<NWR> {
+pub async fn query_with_retries(geobox: GeoBox, url: &str, max_retries: u8) -> Option<NWR> {
     let mut current_try = 0;
 
     while current_try < max_retries {
@@ -29,10 +26,15 @@ pub async fn query_with_retries(
                 error!("Failed to decode Overpass api response due to: {e}");
                 return None;
             }
+            Err(QueryError::API(status)) => {
+                error!("Overpass API returned a bad status code: {status}");
+                return None;
+            }
         }
     }
     None
 }
+
 pub async fn query(geobox: GeoBox, url: &str) -> Result<NWR, QueryError> {
     let query = format!(
         r#"
@@ -86,9 +88,26 @@ pub async fn query(geobox: GeoBox, url: &str) -> Result<NWR, QueryError> {
 
         let res = request.send().await.map_err(QueryError::Reqwest)?;
 
-        res.json::<serde_json::Value>()
-            .await
-            .map_err(QueryError::Reqwest)?
+        if res.status() != 200 {
+            let status = res.status();
+            error!(
+                "The server responded with a non-200 status code: {}\n{:?}",
+                status,
+                res.text().await
+            );
+            return Err(QueryError::API(status));
+        }
+
+        let rtext = res.text().await.map_err(QueryError::Reqwest)?;
+
+        match serde_json::from_str(&rtext) {
+            Ok(rjson) => rjson,
+            Err(e) => {
+                error!("Failed to decode rtext into rjson due to: {e}\nThe rtext was: {rtext}");
+
+                panic!();
+            }
+        }
     };
 
     osm::parsing::parse_osm_json(json_value).map_err(QueryError::SerdeJson)
