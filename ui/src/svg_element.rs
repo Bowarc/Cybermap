@@ -80,6 +80,7 @@ impl SVGElement {
 }
 
 pub fn generate_from_osm(svg_size: PixelsSize, bx: &GeoBox, nwr: &NWR) -> Vec<SVGElement> {
+    // TODO: Use osm::coord::convertion::geo_to_screen
     let map_pt = |pt: GeoPoint| -> ScreenPoint {
         ScreenPoint {
             x: svg_size.width * ((pt.lon() - bx.min().lon()) / (bx.max().lon() - bx.min().lon())),

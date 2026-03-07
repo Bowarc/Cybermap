@@ -5,9 +5,17 @@ pub struct GeoPoint {
 }
 
 impl GeoPoint {
-    pub fn new(lat: f64, lon: f64) -> Self {
-        assert!((-90.0..=90.).contains(&lat));
-        assert!((-180.0..=180.).contains(&lon));
+    pub fn new(mut lat: f64, mut lon: f64) -> Self {
+        lat = round(lat, 6);
+        lon = round(lon, 6);
+        assert!(
+            (-90.0..=90.).contains(&lat),
+            "Tried to create a GeoPoint with latitude '{lat}' but the allowed range is -90..=90"
+        );
+        assert!(
+            (-180.0..=180.).contains(&lon),
+            "Tried to create a GeoPoint with longitude '{lon}' but the allowed range is -180..=180"
+        );
 
         Self { lat, lon }
     }
@@ -40,7 +48,7 @@ impl GeoPoint {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize)]
 pub struct GeoBox {
     // Bot left
     min: GeoPoint,
@@ -143,7 +151,7 @@ impl GeoBox {
 }
 
 #[test]
-fn genobox() {
+fn geobox() {
     let coords = (40.730610, -73.935242); // NY
     let size_km = (8.222, 2.111);
 
@@ -153,4 +161,19 @@ fn genobox() {
     // println!("Height: {}, expected: {}", bx.height_km(), size_km.1);
     assert!(bx.width_km() == size_km.0);
     assert!(bx.height_km() == size_km.1);
+
+    assert_eq!(
+        GeoBox::new(
+            GeoPoint { lat: 5., lon: 5. },
+            GeoPoint { lat: 10., lon: 10. },
+        )
+        .center(),
+        GeoPoint { lat: 7.5, lon: 7.5 }
+    )
+}
+
+fn round(f: f64, decimals: u32) -> f64 {
+    let shift_factor = 10f64.powi(decimals as i32);
+
+    (f * shift_factor).round() / shift_factor
 }
