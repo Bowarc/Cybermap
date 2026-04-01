@@ -1,8 +1,8 @@
-use crate::coord::geo::GeoPoint;
-use std::{collections::HashMap, rc::Rc};
+use crate::coord::{geo::GeoPoint, mercator::MercatorPoint};
+use std::{collections::HashMap, sync::Arc};
+
 // Map of immutable string slices
-pub type Tagmap = HashMap<Rc<str>, Rc<str>>;
-// type Tagmap = HashMap<String, String>;
+pub type Tagmap = HashMap<Arc<str>, Arc<str>>;
 
 // #[derive(Debug, Clone, PartialEq)]
 // pub enum NWR {
@@ -28,7 +28,7 @@ impl NWR {
 pub struct OSMNode {
     pub osm_id: u64,
     pub pos: GeoPoint,
-    pub tags: Tagmap, // Box is even better than Rc if you don't need to clone.
+    pub tags: Tagmap,
 }
 
 impl PartialEq for OSMNode {
@@ -40,8 +40,23 @@ impl PartialEq for OSMNode {
 #[derive(Debug, Clone, PartialEq)]
 pub struct OSMWay {
     pub osm_id: u64,
-    pub nodes: Rc<[OSMNode]>, // Box is even better than Rc if you don't need to clone.
+    pub nodes: Arc<[OSMNode]>,
     pub tags: Tagmap,
 }
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct OSMRelation {}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct MercatorNode {
+    pub osm_id: u64,
+    pub pos: MercatorPoint,
+    pub tags: Tagmap,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct MercatorWay {
+    pub osm_id: u64,
+    pub nodes: Arc<[MercatorNode]>,
+    pub tags: Tagmap,
+}

@@ -81,8 +81,8 @@ pub fn earth_radius_at_lat(lat: f64) -> f64 {
 
 impl GeoBox {
     pub fn new(min: GeoPoint, max: GeoPoint) -> Self {
-        assert!(min.lat < max.lat);
-        assert!(min.lon < max.lon);
+        assert!(min.lat < max.lat, "{min:?}, {max:?}");
+        assert!(min.lon < max.lon, "{min:?}, {max:?}");
 
         Self { min, max }
     }
@@ -107,6 +107,12 @@ impl GeoBox {
         Self::new(
             GeoPoint::new(lat_min.to_degrees(), lon_min.to_degrees()),
             GeoPoint::new(lat_max.to_degrees(), lon_max.to_degrees()),
+        )
+    }
+    pub fn to_mercator(&self) -> super::mercator::MercatorBox {
+        super::mercator::MercatorBox::new(
+            super::convertion::geo_to_mercator(&self.min),
+            super::convertion::geo_to_mercator(&self.max),
         )
     }
 

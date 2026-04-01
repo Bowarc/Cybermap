@@ -3,8 +3,12 @@ use warp::Filter;
 #[macro_use]
 extern crate log;
 
+mod chunk_proxy;
 mod osm_proxy;
 mod rejection;
+mod cache;
+mod api_server;
+mod vec2d;
 
 const ADDR: std::net::SocketAddr = std::net::SocketAddr::V4(std::net::SocketAddrV4::new(
     std::net::Ipv4Addr::new(127, 0, 0, 1),
@@ -30,6 +34,8 @@ async fn main() {
 
     let proxy_route = osm_proxy::build_route();
 
+    let chunk_proxy_route = chunk_proxy::build_route();
+
     let file_server = {
         let static_dir = warp::fs::dir("static");
 
@@ -43,7 +49,12 @@ async fn main() {
 
     debug!("Listening on http://{}:{}", ADDR.ip(), ADDR.port());
 
-    warp::serve(proxy_route.or(file_server).recover(rejection::unknown))
-        .run(ADDR)
-        .await;
+    warp::serve(
+        proxy_route
+            .or(chunk_proxy_route)
+            .or(file_server)
+            .recover(rejection::unknown),
+    )
+    .run(ADDR)
+    .await;
 }

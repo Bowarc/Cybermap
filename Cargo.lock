@@ -4449,8 +4449,10 @@ version = "0.1.0"
 dependencies = [
  "log",
  "logger",
+ "osm",
  "reqwest 0.13.1",
  "serde",
+ "serde_json",
  "time 0.1.0",
  "tokio",
  "warp",

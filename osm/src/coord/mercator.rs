@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct MercatorPoint {
     x: f64,
     y: f64,
@@ -45,7 +45,7 @@ impl MercatorPoint {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct MercatorBox {
     // Bot left
     min: MercatorPoint,
@@ -66,10 +66,47 @@ impl MercatorBox {
         &self.max
     }
 
+    // TODO: Make a constuctor for a box of a given size, the mercator projection is in m at the equator
+    //
+    // The circumference of the earth at the equator is Mercator::UPPER_BOUND - Mercator::LOWER_BOUND (40 .. something)
+    // This is a bit imprecise, but it's fine, I think ?
+    pub fn from_center_and_size(center: &MercatorPoint, size_km: (f64, f64)) -> Self {
+        let geo_center = super::convertion::mercator_to_geo(center);
+        let geobox = super::geo::GeoBox::from_center_and_size(geo_center, size_km);
+
+        Self {
+            min: super::convertion::geo_to_mercator(geobox.min()),
+            max: super::convertion::geo_to_mercator(geobox.max()),
+        }
+    }
+    pub fn to_geo(&self) -> super::geo::GeoBox {
+        super::geo::GeoBox::new(
+            super::convertion::mercator_to_geo(&self.min),
+            super::convertion::mercator_to_geo(&self.max),
+        )
+    }
     pub fn center(&self) -> MercatorPoint {
         MercatorPoint {
             x: (self.max.x - self.min.x) * 0.5 + self.min.x,
             y: (self.max.y - self.min.y) * 0.5 + self.min.y,
+        }
+    }
+    pub fn width(&self) -> f64 {
+        self.max.x - self.min.x
+    }
+    pub fn height(&self) -> f64 {
+        self.max.y - self.min.y
+    }
+    pub fn topleft(&self) -> MercatorPoint {
+        MercatorPoint {
+            x: self.min.x,
+            y: self.max.y,
+        }
+    }
+    pub fn botright(&self) -> MercatorPoint {
+        MercatorPoint {
+            x: self.max.x,
+            y: self.min.y,
         }
     }
 }

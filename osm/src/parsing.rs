@@ -1,6 +1,6 @@
 use crate::element::{NWR, OSMNode, OSMRelation, OSMWay, Tagmap};
 use dioxus_logger::tracing::error;
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, sync::Arc};
 
 #[derive(serde::Deserialize)]
 pub struct RawOsmData {
@@ -90,7 +90,7 @@ pub fn parse_osm_json(json_value: serde_json::Value) -> Result<NWR, serde_json::
                 .tags
                 .unwrap_or_default()
                 .iter()
-                .map(|(k, v)| (Rc::from(k.as_str()), Rc::from(v.as_str())))
+                .map(|(k, v)| (Arc::from(k.as_str()), Arc::from(v.as_str())))
                 .collect::<Tagmap>(),
         };
 
@@ -115,12 +115,12 @@ pub fn parse_osm_json(json_value: serde_json::Value) -> Result<NWR, serde_json::
 
         let way = OSMWay {
             osm_id: element.id,
-            nodes: Rc::from(nodes),
+            nodes: Arc::from(nodes),
             tags: element
                 .tags
                 .unwrap_or_default()
                 .iter()
-                .map(|(k, v)| (Rc::from(k.as_str()), Rc::from(v.as_str())))
+                .map(|(k, v)| (Arc::from(k.as_str()), Arc::from(v.as_str())))
                 .collect::<Tagmap>(),
         };
 

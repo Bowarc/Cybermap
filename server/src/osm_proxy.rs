@@ -5,10 +5,8 @@ use warp_rate_limit::serde;
 
 use warp::{Filter, Rejection, Reply};
 
-mod api_server;
-mod cache;
-use api_server::ServerPool;
-use cache::Cache;
+use crate::cache::{self, Cache};
+use crate::api_server::ServerPool;
 
 use crate::rejection;
 
@@ -18,10 +16,9 @@ const API_SERVERS: &[&str] = &[
     "https://lz4.overpass-api.de/api/interpreter",
     "https://z.overpass-api.de/api/interpreter",
     "https://overpass-api.de/api/interpreter",
+    // Fallback, we won't use it unless we have no other choice
+    "https://overpass.private.coffee/api/interpreter",
 ];
-
-// Fallback, we won't use it unless we have no other choice
-const FALLBACK_API_SERVER: &str = "https://overpass.private.coffee/api/interpreter";
 
 #[derive(serde::Deserialize)]
 struct OSMQuery {
@@ -33,7 +30,7 @@ pub fn build_route() -> impl Filter<Extract = impl Reply, Error = Rejection> + C
     let cache: Arc<RwLock<Box<dyn Cache>>> = Arc::new(RwLock::new(Box::new(cache::DiskCache {
         root_path: "./cache".into(),
     })));
-    let api_pool = ServerPool::new(API_SERVERS, Duration::from_secs(1), FALLBACK_API_SERVER);
+    let api_pool = ServerPool::new(API_SERVERS, Duration::from_secs(1));
 
     let rate_limiter_config = warp_rate_limit::RateLimitConfig {
         max_requests: 4,
@@ -70,6 +67,7 @@ pub enum OSMProxyRejection {
     InvalidUserData,
     APIServerFailure,
     APIResponseUnpackingFailed,
+    NoServerAvailable,
 }
 
 impl warp::reject::Reject for OSMProxyRejection {}
@@ -79,7 +77,7 @@ async fn handle_request(
     _rli: warp_rate_limit::RateLimitInfo,
     client: Client,
     cache: Arc<RwLock<Box<dyn Cache>>>,
-    api_server_pool: api_server::ServerPool,
+    api_server_pool: ServerPool,
 ) -> Result<impl Reply, Rejection> {
     trace!("Received a query for {data_query:?}");
 
@@ -98,7 +96,10 @@ async fn handle_request(
         }
     }
 
-    let api_server_url = api_server_pool.find_one_ready().await;
+    let Some(api_server_url) = api_server_pool.find_one_ready().await else {
+        error!("All API servers are busy");
+        return Err(OSMProxyRejection::NoServerAvailable.into());
+    };
 
     let request = client
         .get(api_server_url.to_string())

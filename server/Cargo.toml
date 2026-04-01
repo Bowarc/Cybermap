@@ -16,3 +16,5 @@ logger = { git = "https://github.com/bowarc/crates", package = "logger" }
 serde = { workspace = true, features = ["derive"] }
 log = "0.4.20"
 time.workspace = true
+osm = { path = "../osm" }
+serde_json.workspace = true

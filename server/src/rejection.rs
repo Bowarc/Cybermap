@@ -30,12 +30,14 @@ pub async fn proxy(rejection: Rejection) -> Result<impl Reply, Rejection> {
         OSMProxyRejection::CacheFailure
         | OSMProxyRejection::APIServerFailure
         | OSMProxyRejection::APIResponseUnpackingFailed => {
-            warp::reply::with_status("Internal server error", StatusCode::INTERNAL_SERVER_ERROR)
+            warp::reply::with_status("Internal Server Error", StatusCode::INTERNAL_SERVER_ERROR)
                 .into_response()
         }
-
         OSMProxyRejection::InvalidUserData => {
             warp::reply::with_status("Bad request", StatusCode::BAD_REQUEST).into_response()
+        }
+        OSMProxyRejection::NoServerAvailable => {
+            warp::reply::with_status("Service Unavailable", StatusCode::SERVICE_UNAVAILABLE).into_response()
         }
     })
 }

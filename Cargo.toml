@@ -6,7 +6,7 @@ members = ["ui", "web", "mobile", "server", "osm"]
 dioxus = { version = "0.7.2" }
 serde_json = "1.0.148"
 reqwest = "0.13.1"
-serde = "1.0.228"
+serde = { version = "1.0.228", features = ["rc"] }
 time = { git = "https://github.com/bowarc/crates", package = "time" }
 
 # workspace
