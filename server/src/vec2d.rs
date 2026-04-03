@@ -145,7 +145,7 @@ impl Iterator for Vec2DIterator {
             self.current_index / self.width,
         ));
 
-        debug!("{}=>{res:?}", self.current_index);
+        // debug!("{}=>{res:?}", self.current_index);
         self.current_index += 1;
         res
     }

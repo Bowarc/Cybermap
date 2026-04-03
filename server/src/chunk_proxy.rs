@@ -48,6 +48,11 @@ const API_SERVERS: &[&str] = &[
     "https://overpass.private.coffee/api/interpreter",
 ];
 
+#[derive(serde::Deserialize)]
+struct Query {
+    inner: String,
+}
+
 pub fn build_route() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
     let client = reqwest::Client::new();
     let cache: Arc<RwLock<Box<dyn Cache>>> = Arc::new(RwLock::new(Box::new(cache::DiskCache {
@@ -63,15 +68,28 @@ pub fn build_route() -> impl Filter<Extract = impl Reply, Error = Rejection> + C
         ip_header: "X-Forwarded-For".to_owned(),
     };
 
+    let bx = serde_json::to_string(&GeoBox::from_center_and_size(
+        GeoPoint::new(40.730610, 73.935242),
+        (1., 1.),
+    ))
+    .unwrap();
+    let mut rb = client.get(format!("http://127.0.0.1:42061/overpass_chunk_api"));
+    let rb = rb.query(&[("", &bx)]);
+    debug!("{rb:?}");
+    // rb.send();
+
     warp::get()
         .and(warp::path("overpass_chunk_api"))
         .and(warp::path::end())
         // Naïve 'security' to make sure bots won't trigger an api call by spamming random sht
-        .and(warp::filters::header::exact(
-            "cybermap",
-            "8b3d00bf-b0cc-4a7d-b389-9c0e9d0688f8",
-        ))
-        .and(warp::query::query::<GeoBox>())
+        // .and(warp::filters::header::exact(
+        //     "cybermap",
+        //     "8b3d00bf-b0cc-4a7d-b389-9c0e9d0688f8",
+        // ))
+        .and(
+            warp::query::query::<Query>()
+                .map(|query: Query| serde_json::from_str(&query.inner).unwrap()),
+        )
         .and(warp_rate_limit::with_rate_limit(rate_limiter_config))
         .and(warp::any().map(move || client.clone()))
         .and(warp::any().map(move || cache.clone()))
@@ -107,6 +125,8 @@ async fn handle_request(
     assert!(data_query.width_km() < 10.);
     assert!(data_query.height_km() < 10.);
 
+    debug!("Got chunk request");
+
     let mbox = data_query.to_mercator();
     let chunk_rects = split_mercatorbox(&mbox);
     let cache_read = cache.read().await;
@@ -123,10 +143,7 @@ async fn handle_request(
                 let chunk = serde_json::from_str::<chunk::Chunk>(&data).unwrap();
                 chunks.insert((x, y), chunk);
             }
-            Ok(None) => {
-                // i += 1;
-                // The chunk is new
-            }
+            Ok(None) => (), // The chunk is new
             Err(e) => {
                 error!("Something has gone wrong while fetching chunks from storage: {e}");
                 // i+=1;
@@ -175,14 +192,15 @@ async fn handle_request(
             }
         };
 
-        todo!("Push new nwr to a 'global' new_data variable(NWR)");
-
+        // todo!("Push new nwr to a 'global' new_data variable(NWR)");
     }
+    todo!("above");
 
     // let new_data: MERCATORNWR ?
 
     assert_eq!(to_request.len(), chunk_rects.len());
-    let mut new_chunks: Vec<(chunk::Chunk, (usize, usize))> = Vec::with_capacity(to_be_requested.len()); // x, y
+    let mut new_chunks: Vec<(chunk::Chunk, (usize, usize))> =
+        Vec::with_capacity(to_be_requested.len()); // x, y
     // todo!("For chunks-that-have-no-data");
     for (x, y) in chunk_rects.iter() {
         if to_request.get(x, y) != Some(&true) {
@@ -223,7 +241,8 @@ async fn handle_request(
 }
 
 fn request_area_with_url(gbox: GeoBox, api_url: Arc<str>) -> Result<NWR, String> {
-    todo!("Request area: {gbox:#?} at {api_url}");
+    debug!("Request area: {gbox:#?} at {api_url}");
+    Err(String::from("test"))
 }
 
 fn greedy_chunk(
@@ -238,13 +257,14 @@ fn greedy_chunk(
 
     let mut boxes_to_request = Vec::<MercatorBox>::new();
 
-    while chunks_to_request
-        .iter()
-        .any(|(x, y)| *chunks_to_request.get(x, y).unwrap())
-    {
+    loop {
+        debug!("Searching for starting point in: {chunks_to_request:?}");
         // find a starting point
+        //
+        // Theses are inclusive
         let mut start_x = 0;
         let mut start_y = 0;
+        // This iterator checks bounds, there is no way it creates a none, so the exit condition cannot be met
         for (x, y) in chunks_to_request.iter() {
             match chunks_to_request.get(x, y) {
                 Some(true) => {
@@ -253,38 +273,81 @@ fn greedy_chunk(
                     break;
                 }
                 Some(false) => continue,
-                None => unreachable!(), // No more to request, this should have been picked up by the while above
+                None => unreachable!(), // Since it's a bound-aware iterator, we cannot get invalid xy
             }
         }
+        // So we gotta check for it here
+        if start_x == 0 && chunks_to_request.get(start_x, start_y) == Some(&false) {
+            debug!("Boxes to request: {boxes_to_request:?}");
+            return boxes_to_request;
+        } else {
+            // Don't forget to set it to false, AFTER checking for emptyness
+            //
+            // This is not ideal, but it's fine for now
+            chunks_to_request.set(start_x, start_y, false).unwrap();
+        }
 
-        // let topleft, botright = chunk_box_vec.get(xy_to_index(x, y)).unwrap().topleft();
+        debug!("Found start point in: {start_x}, {start_y}");
 
+        debug!("Searching for end point in: {chunks_to_request:?}");
         // Find an end point
-        let mut end_x = start_x;
-        let mut end_y = start_y;
-        todo!("You cannot be using wrapping iterator here...");
-        for (x, y) in crate::vec2d::Vec2DIterator::new_from_xy_wh(end_x, end_y, width, height) {
-            match chunks_to_request.get(x, y) {
-                Some(true) | None => {
-                    end_x = x;
-                    end_y = y;
+        //
+        // Inclusive too
+        let (end_x, end_y) = {
+            let mut end_x = start_x;
+            let mut end_y = start_y;
+
+            loop {
+                let current_x = end_x + 1;
+
+                match chunks_to_request.get(current_x, end_y) {
+                    Some(false) | None => {
+                        break;
+                    }
+                    Some(true) => {
+                        // Very important to disable any chunk already searched
+                        chunks_to_request.set(current_x, end_y, false).unwrap();
+                        end_x = current_x;
+                        continue;
+                    }
+                }
+            }
+
+            assert!(chunks_to_request.get(end_x, end_y).is_some());
+
+            loop {
+                let current_y = end_y + 1;
+
+                // If there is any chunk not marked for request in the new row, abort
+                if (start_x..=end_x).any(|x| {
+                    debug!(
+                        "[Y] Checking for {x}, {current_y}: {:?}",
+                        chunks_to_request.get(x, current_y)
+                    );
+
+                    chunks_to_request.get(x, current_y) != Some(&true)
+                }) {
                     break;
                 }
-                Some(false) => {
-                    // Very important to disable any chunk already searched
-                    chunks_to_request.set(x, y, false).unwrap();
-                    continue;
-                }
+
+                // Very important to disable any chunk already searched
+                (start_x..=end_x).for_each(|x| {
+                    chunks_to_request.set(x, current_y, false).unwrap();
+                });
+
+                end_y = current_y;
             }
-        }
+            debug!("Found start point in: {start_x}, {start_y}");
+
+            (end_x, end_y)
+        };
+        debug!("Found end point in: {end_x}, {end_y}");
 
         let start = chunk_rects.get(start_x, start_y).unwrap();
         let end = chunk_rects.get(end_x, end_y).unwrap();
 
         boxes_to_request.push(MercatorBox::new(start.topleft(), end.botright()));
     }
-
-    unreachable!()
 }
 
 fn round(f: f64, decimals: u32) -> f64 {
@@ -331,7 +394,7 @@ fn split_oms_data_in_chunks(geobox: &GeoBox, nwr: osm::element::NWR) -> Vec2D<ch
                     osm_id: way.osm_id,
                     nodes: way
                         .nodes
-                        .into_iter()
+                        .iter()
                         .map(|node| MercatorNode {
                             osm_id: node.osm_id,
                             pos: convertion::geo_to_mercator(&node.pos),

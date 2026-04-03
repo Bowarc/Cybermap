@@ -52,7 +52,7 @@ async fn main() {
     warp::serve(
         proxy_route
             .or(chunk_proxy_route)
-            .or(file_server)
+            // .or(file_server)
             .recover(rejection::unknown),
     )
     .run(ADDR)

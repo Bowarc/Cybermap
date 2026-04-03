@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct GeoPoint {
     lat: f64,
     lon: f64,
@@ -48,7 +48,7 @@ impl GeoPoint {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct GeoBox {
     // Bot left
     min: GeoPoint,
