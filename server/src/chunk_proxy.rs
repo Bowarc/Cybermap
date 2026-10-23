@@ -219,7 +219,7 @@ async fn handle_request(
         }
 
         for (key, way) in data.ways.into_iter() {
-            if new_data.nodes.contains_key(&key) {
+            if new_data.ways.contains_key(&key) {
                 debug!("New NWR already contains the way:\nKey: {key}\nData: {way:?}");
                 continue;
             }
@@ -229,9 +229,56 @@ async fn handle_request(
         // TODO: relations ?
     }
 
-    // STATE: Here, we got a bunch of data, that we have to split back into the original chunks
-
+    // TODO: Here, maybe convert into mercator types ?
     // let new_data: MERCATORNWR ?
+    // STATE: Here, we got a bunch of data, that we have to split back into the original chunks
+    let new_nodes = new_data
+        .nodes
+        .into_iter()
+        .map(|(id, node)| {
+            (
+                id,
+                MercatorNode {
+                    osm_id: id,
+                    pos: convertion::geo_to_mercator(&node.pos),
+                    tags: node.tags,
+                },
+            )
+        })
+        .collect::<HashMap<u64, MercatorNode>>();
+    let new_ways = new_data
+        .ways
+        .into_iter()
+        .map(|(id, way)| {
+            let nodes = way
+                .nodes
+                .iter()
+                .flat_map(|osm_node| {
+                    let res = new_nodes.get(&osm_node.osm_id);
+                    if res.is_none() {
+                        warn!(
+                            "A way node was not in the node pool\nId: {}\nNode: {osm_node:#?}",
+                            osm_node.osm_id
+                        );
+                    }
+                    res
+                })
+                .cloned()
+                .collect::<Vec<MercatorNode>>();
+
+            (
+                id,
+                MercatorWay {
+                    osm_id: id,
+                    nodes: nodes.into(),
+                    tags: way.tags,
+                },
+            )
+        })
+        .collect::<HashMap<u64, MercatorWay>>();
+
+    // This is OSM data, and should not be used as-is
+    // drop(new_data);
 
     assert_eq!(to_request.len(), chunk_rects.len());
     let mut new_chunks: Vec<(chunk::Chunk, (usize, usize))> =
@@ -244,38 +291,55 @@ async fn handle_request(
         }
         let chunk_rect = chunk_rects.get(x, y).unwrap();
 
-        todo!("Fill theses chunks with data using the data fetched by the requests above");
-        let nodes = new_data
-            .nodes
+        // todo!("Fill theses chunks with data using the data fetched by the requests above");
+        let chunk_nodes = new_nodes
             .iter()
-            // The convertion here is repeated a lot (nodes.len() * chunks.len())
-            // It's probably best to work with mercator data here and have the conertion be done before
-            .filter(|(id, node)| chunk_rect.contains_point(convertion::geo_to_mercator(&node.pos)));
+            .filter(|(_, node)| chunk_rect.contains_point(&node.pos))
+            .map(|(id, node)| (*id, node.clone()))
+            .collect::<HashMap<u64, MercatorNode>>();
 
-        let mut ways = new_data
-            .ways
+        // Any way that contains at least one node in the chunk
+        let chunk_ways = new_ways
             .iter()
-            .filter(|(id, way)| {
+            .filter(|(_, way)| {
                 way.nodes
                     .iter()
-                    .any(|node| chunk_rect.contains_point(convertion::geo_to_mercator(&node.pos)))
+                    .any(|node| chunk_rect.contains_point(&node.pos))
+                // Maybe a better check would be to check the id against the chunk_nodes above
+                // .any(|node| chunk_nodes.get(&node.osm_id).is_some())
             })
-            .collect::<Vec<_>>();
-        let truncated_ways = ways.clone().retain_mut(|(id, way)| {
-            // TODO: Change data type, this is not right
-            // I'm not saying to change the type of OSMWay, I'm just saying that new_data should NOT be a regular OSM type
-            // First, it needs to be in mercator, 2nd, it needs to be mutable
-            // I don't need a storage data type here, I need something editable
-            // This is not right
-            way.nodes
-                .retain(|node| chunk_rect.contains_point(convertion::geo_to_mercator(&node.pos)));
-            way.nodes.is_empty()
-        });
+            .map(|(id, way)| (*id, way.clone()))
+            .collect::<HashMap<u64, MercatorWay>>();
+
+        let chunk_truncated_ways = chunk_ways
+            .iter()
+            .map(|(id, way)| {
+                // Something to consider also, is ways that go out of the area, and back in
+                // Are they two ways now ?
+                // And if so, how do we handle two ways with the same id, but a different nodeset
+                //
+                // Currently, we just filter out every node that is not in the area
+                // This can create ways that are completely split, but this is a problem for another me
+                // also, TODO, BUG
+                let mut way_nodes = way.nodes.to_vec(); // This is a clone btw >:(
+                way_nodes.retain(|node| chunk_rect.contains_point(&node.pos));
+
+                (
+                    *id,
+                    way_nodes
+                        .iter()
+                        .map(|node| node.osm_id)
+                        .collect::<Vec<u64>>(),
+                )
+            })
+            .filter(|(_, way_nodesid)| !way_nodesid.is_empty())
+            .collect::<HashMap<u64, Vec<u64>>>();
+
         let chunk = chunk::Chunk {
             zone: *chunk_rect,
-            nodes: todo!(),              // Fill from data
-            ways: todo!(),               // Fill from data
-            non_truncated_ways: todo!(), // Fill from data
+            nodes: chunk_nodes,
+            ways: chunk_ways,
+            non_truncated_ways: chunk_truncated_ways,
         };
         new_chunks.push((chunk, (x, y)));
     }
