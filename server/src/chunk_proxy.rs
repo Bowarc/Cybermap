@@ -114,6 +114,23 @@ pub enum OSMProxyRejection {
 
 impl warp::reject::Reject for OSMProxyRejection {}
 
+/// The idea is simple, the user sends a zone they wanna see, we fetch it for them.
+/// In reality, it's a bit more complicated.
+/// OSM is slow, especially when requested big areas,
+/// My ideas is to use two things,
+/// - Caching
+/// - Fragmentation
+///
+/// Caching is easy, but two requests are virtually impossible be identical, even from the same user.
+/// So I added a chunk system on top of that, and to 'standardize' chunks positions,
+/// we round the coordinates to a given fraction (10th, in mercator coordinates).
+///
+/// Then we request the chunks one by one, cache the result and reconstruct the area from the data.
+/// Bundle that up, send back to the clients and the next time, only the new chunks needs to be requested,
+/// the rest can be reconstructed from previous request by using the cache.
+///
+/// We internally work in mercator coordinates, but OSM works in Geo coordinates,
+/// WE do the translation and use geo ONLY when interacting with OSM.
 async fn handle_request(
     data_query: GeoBox,
     _rli: warp_rate_limit::RateLimitInfo,
@@ -168,6 +185,7 @@ async fn handle_request(
     .unwrap();
     let to_be_requested: Vec<MercatorBox> = greedy_chunk(&chunk_rects, to_request.clone()); // I don't like this clone
 
+    // NOTE: This should probably hold mercator data in order to not convert multiple times later
     let mut new_data: NWR = NWR::default();
     for (i, chunk_rect) in to_be_requested.iter().enumerate() {
         // Would be nice to request a bit more than necessary in order to not miss any data (geo -> mercator error)
@@ -192,9 +210,26 @@ async fn handle_request(
             }
         };
 
-        // todo!("Push new nwr to a 'global' new_data variable(NWR)");
+        for (key, node) in data.nodes.into_iter() {
+            if new_data.nodes.contains_key(&key) {
+                debug!("New NWR already contains the node:\nKey: {key}\nData: {node:?}");
+                continue;
+            }
+            new_data.nodes.insert(key, node).unwrap();
+        }
+
+        for (key, way) in data.ways.into_iter() {
+            if new_data.nodes.contains_key(&key) {
+                debug!("New NWR already contains the way:\nKey: {key}\nData: {way:?}");
+                continue;
+            }
+            new_data.ways.insert(key, way).unwrap();
+        }
+
+        // TODO: relations ?
     }
-    todo!("above");
+
+    // STATE: Here, we got a bunch of data, that we have to split back into the original chunks
 
     // let new_data: MERCATORNWR ?
 
@@ -210,6 +245,32 @@ async fn handle_request(
         let chunk_rect = chunk_rects.get(x, y).unwrap();
 
         todo!("Fill theses chunks with data using the data fetched by the requests above");
+        let nodes = new_data
+            .nodes
+            .iter()
+            // The convertion here is repeated a lot (nodes.len() * chunks.len())
+            // It's probably best to work with mercator data here and have the conertion be done before
+            .filter(|(id, node)| chunk_rect.contains_point(convertion::geo_to_mercator(&node.pos)));
+
+        let mut ways = new_data
+            .ways
+            .iter()
+            .filter(|(id, way)| {
+                way.nodes
+                    .iter()
+                    .any(|node| chunk_rect.contains_point(convertion::geo_to_mercator(&node.pos)))
+            })
+            .collect::<Vec<_>>();
+        let truncated_ways = ways.clone().retain_mut(|(id, way)| {
+            // TODO: Change data type, this is not right
+            // I'm not saying to change the type of OSMWay, I'm just saying that new_data should NOT be a regular OSM type
+            // First, it needs to be in mercator, 2nd, it needs to be mutable
+            // I don't need a storage data type here, I need something editable
+            // This is not right
+            way.nodes
+                .retain(|node| chunk_rect.contains_point(convertion::geo_to_mercator(&node.pos)));
+            way.nodes.is_empty()
+        });
         let chunk = chunk::Chunk {
             zone: *chunk_rect,
             nodes: todo!(),              // Fill from data
@@ -506,6 +567,7 @@ fn split_geobox(geobox: &GeoBox) -> Vec<GeoBox> {
     chunks
 }
 
+/// Split an area into a list of chunks with standardized centers (to the 10th mercator decimal)
 fn split_mercatorbox(mbox: &MercatorBox) -> Vec2D<MercatorBox> {
     let mut chunks = Vec::new();
     const CHUNK_SIZE: f64 = 100.;

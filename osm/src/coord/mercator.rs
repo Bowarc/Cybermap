@@ -109,6 +109,10 @@ impl MercatorBox {
             y: self.min.y,
         }
     }
+    /// Borders count too (<>=)
+    pub fn contains_point(&self, point: MercatorPoint) -> bool {
+        self.min.x <= point.x && self.max.x >= point.x && self.min.y <= point.y && self.max.y >= point.y
+    }
 }
 
 fn round(f: f64, decimals: u32) -> f64 {
