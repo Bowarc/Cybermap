@@ -38,12 +38,13 @@ mod chunk;
 //  If the client zooms out -> Only a couple of chunks are to be requested (1 small chunk groups on each side)
 //  If the client moves -> Only a small portion of chunks are to be requested (1 small chunk group on one side (maybe 2 if diagonal))
 
-const USER_AGENT: &str = "Cybermap/0.1.0 (linux; x86_64)";
+const USER_AGENT: &str = "CybermapTesting/0.1.0 (linux; x86_64)";
 
 const API_SERVERS: &[&str] = &[
+    // "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+    "https://overpass-api.de/api/interpreter",
     "https://lz4.overpass-api.de/api/interpreter",
     "https://z.overpass-api.de/api/interpreter",
-    "https://overpass-api.de/api/interpreter",
     // Fallback, we won't use it unless we have no other choice
     "https://overpass.private.coffee/api/interpreter",
 ];
@@ -58,6 +59,8 @@ pub fn build_route() -> impl Filter<Extract = impl Reply, Error = Rejection> + C
     let cache: Arc<RwLock<Box<dyn Cache>>> = Arc::new(RwLock::new(Box::new(cache::DiskCache {
         root_path: "./chunk_cache".into(),
     })));
+    // let cache: Arc<RwLock<Box<dyn Cache>>> =
+    //     Arc::new(RwLock::new(Box::new(cache::CacheMap::new())));
 
     let api_pool = ServerPool::new(API_SERVERS, Duration::from_secs(1));
 
@@ -67,16 +70,6 @@ pub fn build_route() -> impl Filter<Extract = impl Reply, Error = Rejection> + C
         retry_after_format: warp_rate_limit::RetryAfterFormat::HttpDate,
         ip_header: "X-Forwarded-For".to_owned(),
     };
-
-    let bx = serde_json::to_string(&GeoBox::from_center_and_size(
-        GeoPoint::new(40.730610, 73.935242),
-        (1., 1.),
-    ))
-    .unwrap();
-    let mut rb = client.get(format!("http://127.0.0.1:42061/overpass_chunk_api"));
-    let rb = rb.query(&[("", &bx)]);
-    debug!("{rb:?}");
-    // rb.send();
 
     warp::get()
         .and(warp::path("overpass_chunk_api"))
@@ -146,10 +139,12 @@ async fn handle_request(
 
     let mbox = data_query.to_mercator();
     let chunk_rects = split_mercatorbox(&mbox);
+    debug!("Split box: {chunk_rects:?}");
     let cache_read = cache.read().await;
 
     let mut chunks = HashMap::<(usize, usize), chunk::Chunk>::with_capacity(chunk_rects.len());
 
+    debug!("Asking cache for known regions");
     // Fetch cached chunks
     for (x, y) in chunk_rects.iter() {
         let chunk_rect = chunk_rects.get(x, y).unwrap();
@@ -171,6 +166,7 @@ async fn handle_request(
             }
         }
     }
+    debug!("Found {} cached chunks", chunks.len());
     drop(cache_read);
 
     // build to-be-requested areas
@@ -185,11 +181,18 @@ async fn handle_request(
     .unwrap();
     let to_be_requested: Vec<MercatorBox> = greedy_chunk(&chunk_rects, to_request.clone()); // I don't like this clone
 
+    debug!(
+        "Greedy chunk alg merged {} chunk to {}\n{to_be_requested:?}",
+        chunk_rects.len(),
+        to_be_requested.len()
+    );
+
     // NOTE: This should probably hold mercator data in order to not convert multiple times later
     let mut new_data: NWR = NWR::default();
     for (i, chunk_rect) in to_be_requested.iter().enumerate() {
-        // Would be nice to request a bit more than necessary in order to not miss any data (geo -> mercator error)
+        // NOTE: Would be nice to request a bit more than necessary in order to not miss any data (geo -> mercator error)
         // like 5% ?
+        debug!("Requesting data for chunk n°{}. ({chunk_rect:?})", i + 1);
         let gbox = chunk_rect.to_geo();
         let api_url = match api_server_pool.find_one_ready().await {
             Some(url) => url,
@@ -202,7 +205,7 @@ async fn handle_request(
         };
 
         // Request data for the chunk
-        let data = match request_area_with_url(gbox, api_url) {
+        let data = match request_area_with_url(gbox, api_url).await {
             Ok(data) => data,
             Err(e) => {
                 error!("Failed to request geobox {i}: {gbox:?} due to: {e}");
@@ -212,22 +215,24 @@ async fn handle_request(
 
         for (key, node) in data.nodes.into_iter() {
             if new_data.nodes.contains_key(&key) {
-                debug!("New NWR already contains the node:\nKey: {key}\nData: {node:?}");
+                warn!("New NWR already contains the node:\nKey: {key}\nData: {node:?}");
                 continue;
             }
-            new_data.nodes.insert(key, node).unwrap();
+            new_data.nodes.insert(key, node);
         }
 
         for (key, way) in data.ways.into_iter() {
             if new_data.ways.contains_key(&key) {
-                debug!("New NWR already contains the way:\nKey: {key}\nData: {way:?}");
+                warn!("New NWR already contains the way:\nKey: {key}\nData: {way:?}");
                 continue;
             }
-            new_data.ways.insert(key, way).unwrap();
+            new_data.ways.insert(key, way);
         }
 
         // TODO: relations ?
     }
+
+    debug!("Done, converting OSM data to mercator..");
 
     // TODO: Here, maybe convert into mercator types ?
     // let new_data: MERCATORNWR ?
@@ -256,10 +261,10 @@ async fn handle_request(
                 .flat_map(|osm_node| {
                     let res = new_nodes.get(&osm_node.osm_id);
                     if res.is_none() {
-                        warn!(
-                            "A way node was not in the node pool\nId: {}\nNode: {osm_node:#?}",
-                            osm_node.osm_id
-                        );
+                        // warn!(
+                        //     "A way node was not in the node pool\nId: {}\nNode: {osm_node:?}",
+                        //     osm_node.osm_id
+                        // );
                     }
                     res
                 })
@@ -279,6 +284,8 @@ async fn handle_request(
 
     // This is OSM data, and should not be used as-is
     // drop(new_data);
+
+    debug!("Putting back data into original chunks..");
 
     assert_eq!(to_request.len(), chunk_rects.len());
     let mut new_chunks: Vec<(chunk::Chunk, (usize, usize))> =
@@ -311,44 +318,57 @@ async fn handle_request(
             .map(|(id, way)| (*id, way.clone()))
             .collect::<HashMap<u64, MercatorWay>>();
 
-        let chunk_truncated_ways = chunk_ways
-            .iter()
-            .map(|(id, way)| {
-                // Something to consider also, is ways that go out of the area, and back in
-                // Are they two ways now ?
-                // And if so, how do we handle two ways with the same id, but a different nodeset
-                //
-                // Currently, we just filter out every node that is not in the area
-                // This can create ways that are completely split, but this is a problem for another me
-                // also, TODO, BUG
-                let mut way_nodes = way.nodes.to_vec(); // This is a clone btw >:(
-                way_nodes.retain(|node| chunk_rect.contains_point(&node.pos));
+        // let chunk_truncated_ways = chunk_ways
+        //     .iter()
+        //     .map(|(id, way)| {
+        //         // Something to consider also, is ways that go out of the area, and back in
+        //         // Are they two ways now ?
+        //         // And if so, how do we handle two ways with the same id, but a different nodeset
+        //         //
+        //         // Currently, we just filter out every node that is not in the area
+        //         // This can create ways that are completely split, but this is a problem for another me
+        //         // also, TODO, BUG
+        //         let mut way_nodes = way.nodes.to_vec(); // This is a clone btw >:(
+        //         way_nodes.retain(|node| chunk_rect.contains_point(&node.pos));
 
-                (
-                    *id,
-                    way_nodes
-                        .iter()
-                        .map(|node| node.osm_id)
-                        .collect::<Vec<u64>>(),
-                )
-            })
-            .filter(|(_, way_nodesid)| !way_nodesid.is_empty())
-            .collect::<HashMap<u64, Vec<u64>>>();
+        //         (
+        //             *id,
+        //             way_nodes
+        //                 .iter()
+        //                 .map(|node| node.osm_id)
+        //                 .collect::<Vec<u64>>(),
+        //         )
+        //     })
+        //     .filter(|(_, way_nodesid)| !way_nodesid.is_empty())
+        //     .collect::<HashMap<u64, Vec<u64>>>();
 
         let chunk = chunk::Chunk {
             zone: *chunk_rect,
             nodes: chunk_nodes,
             ways: chunk_ways,
-            non_truncated_ways: chunk_truncated_ways,
+            // non_truncated_ways: chunk_truncated_ways,
         };
+        debug!("Chunk: {chunk:?}");
         new_chunks.push((chunk, (x, y)));
     }
-    todo!("Write the new chunks to disk");
+
+    debug!("Writing to disk");
+    // Write the new chunks to disk
 
     // Save to cache
     let mut cache_write = cache.write().await;
 
     for (chunk, pos) in new_chunks.into_iter() {
+        // NOTE: Maybe don't write to disk empty chunks
+        // TODO: Add a way to not write to disk failed chunks (where the request failed)
+
+        if chunk.is_empty() {
+            debug!("Skipping empty chunk: {pos:?}");
+            continue;
+        } else {
+            debug!("Writing: {pos:?}");
+        }
+
         let key = serde_json::to_string(&chunk.zone).unwrap();
         let data = serde_json::to_string(&chunk).unwrap();
         cache_write.insert(&key, &data).unwrap();
@@ -365,22 +385,119 @@ async fn handle_request(
     Ok(warp::reply::with_status("", StatusCode::IM_A_TEAPOT))
 }
 
-fn request_area_with_url(gbox: GeoBox, api_url: Arc<str>) -> Result<NWR, String> {
+async fn request_area_with_url(gbox: GeoBox, api_url: Arc<str>) -> Result<NWR, String> {
     debug!("Request area: {gbox:#?} at {api_url}");
-    Err(String::from("test"))
+    // TODO: Pass real client
+    let client = reqwest::Client::new();
+
+    let query = format!(
+        r#"
+[out:json][timeout:360][bbox:{},{},{},{}];
+(
+    way
+    ['name']
+    ['highway']
+    ['highway' !~ 'path']
+    ['highway' !~ 'steps']
+    ['highway' !~ 'motorway']
+    ['highway' !~ 'motorway_link']
+    ['highway' !~ 'raceway']
+    ['highway' !~ 'bridleway']
+    ['highway' !~ 'proposed']
+    ['highway' !~ 'construction']
+    ['highway' !~ 'elevator']
+    ['highway' !~ 'bus_guideway']
+    ['highway' !~ 'footway']
+    ['highway' !~ 'cycleway']
+    ['foot' !~ 'no']
+    ['access' !~ 'private']
+    ['access' !~ 'no'];
+);
+(._;>;);
+out;
+(
+    way["building"];
+);
+(._;>;);
+out;"#,
+        gbox.min().lat(),
+        gbox.min().lon(),
+        gbox.max().lat(),
+        gbox.max().lon()
+    );
+
+    let request = client
+        .get(api_url.to_string()) // My dev proxy is somehow turning them into 'bad requests'
+        .query(&[("data", &query)])
+        .header("User-Agent", USER_AGENT)
+        .timeout(Duration::from_secs(60))
+        .build()
+        .map_err(|e| {
+            error!("An error occured while building the request with user data: {e}");
+            OSMProxyRejection::InvalidUserData
+        })
+        .unwrap();
+
+    let response = client
+        .execute(request)
+        .await
+        .map_err(|e| {
+            error!(
+                "An error occured while querying api server ({}) with data:\n{}\n{e}",
+                api_url, query
+            );
+            OSMProxyRejection::InvalidUserData
+        })
+        .unwrap();
+
+    if !response.status().is_success() {
+        let status_code = response.status();
+
+        error!(
+            "Got a non-success code when querying api server ({}): {}",
+            api_url,
+            response.status()
+        );
+
+        if status_code.is_client_error() {
+            return Err(String::from("Client error"));
+        }
+
+        return Err(String::from("Server failure"));
+    }
+
+    let res_body = response.json().await.map_err(|e| {
+        error!(
+            "An error occured while unpacking the reponse of the api server ({}): {e}",
+            api_url
+        );
+        String::from("Failed to unpack server response")
+    })?;
+
+    osm::parsing::parse_osm_json(res_body).map_err(|e| ToString::to_string(&e))
 }
 
 fn greedy_chunk(
     chunk_rects: &Vec2D<MercatorBox>,
     mut chunks_to_request: Vec2D<bool>,
 ) -> Vec<MercatorBox> {
-    assert_eq!(chunk_rects.len(), chunks_to_request.len());
-    let width = chunk_rects.width();
-    let height = chunk_rects.height();
+    assert_ne!(chunk_rects.len(), 0, "No chunks to merge back together");
+    assert_eq!(
+        chunk_rects.width(),
+        chunks_to_request.width(),
+        "The two arrays needs to have the same shape"
+    );
+    assert_eq!(
+        chunk_rects.height(),
+        chunks_to_request.height(),
+        "The two arrays needs to have the same shape"
+    );
 
     // let xy_to_index = |x: u16, y: u16| -> usize { (y * width as u16 + x) as usize };
 
     let mut boxes_to_request = Vec::<MercatorBox>::new();
+
+    debug!("Greedy chunk start, got {} chunks", chunk_rects.len());
 
     loop {
         debug!("Searching for starting point in: {chunks_to_request:?}");
@@ -471,7 +588,15 @@ fn greedy_chunk(
         let start = chunk_rects.get(start_x, start_y).unwrap();
         let end = chunk_rects.get(end_x, end_y).unwrap();
 
-        boxes_to_request.push(MercatorBox::new(start.topleft(), end.botright()));
+        debug!("Start: {start:#?}\nEnd: {end:#?}");
+
+        let new_box = MercatorBox::new(
+            MercatorPoint::new(start.min().x(), end.min().y()),
+            MercatorPoint::new(end.max().x(), start.max().y()),
+        );
+        debug!("New box: {new_box:#?}");
+
+        boxes_to_request.push(new_box);
     }
 }
 
@@ -568,25 +693,25 @@ fn split_oms_data_in_chunks(geobox: &GeoBox, nwr: osm::element::NWR) -> Vec2D<ch
             })
             .collect::<HashMap<u64, MercatorWay>>();
 
-        let chunk_full_ways = chunk_ways
-            .keys()
-            .map(|id| ways.get(id).unwrap()) // this unwrap should NEVER fail as chunk_ways is a subset of ways
-            .map(|way| {
-                (
-                    way.osm_id,
-                    way.nodes
-                        .iter()
-                        .map(|node| node.osm_id)
-                        .collect::<Vec<u64>>(),
-                )
-            })
-            .collect::<HashMap<u64, Vec<u64>>>();
+        // let chunk_full_ways = chunk_ways
+        //     .keys()
+        //     .map(|id| ways.get(id).unwrap()) // this unwrap should NEVER fail as chunk_ways is a subset of ways
+        //     .map(|way| {
+        //         (
+        //             way.osm_id,
+        //             way.nodes
+        //                 .iter()
+        //                 .map(|node| node.osm_id)
+        //                 .collect::<Vec<u64>>(),
+        //         )
+        //     })
+        //     .collect::<HashMap<u64, Vec<u64>>>();
 
         let chunk = chunk::Chunk {
             zone: *chunk_rect,
             nodes: chunk_nodes,
             ways: chunk_ways,
-            non_truncated_ways: chunk_full_ways,
+            // non_truncated_ways: chunk_full_ways,
         };
 
         chunks.push(chunk);
@@ -648,12 +773,13 @@ fn split_mercatorbox(mbox: &MercatorBox) -> Vec2D<MercatorBox> {
     let width = ((end_x - start_x) / CHUNK_SIZE) as usize;
     let height = ((end_y - start_y) / CHUNK_SIZE) as usize;
 
-    debug!("{mbox:?}");
-    debug!("{start_y}, {start_x}, {end_y}, {end_x}");
-    debug!("{width},{height}");
+    debug!("Splitting mercatorbox: {mbox:?}");
+    debug!(
+        "starty: {start_y}, startx: {start_x}\nendy: {end_y}, endx: {end_x}\nWidth: {width}, height: {height}"
+    );
 
-    let mut y = start_y;
-    while y < end_y {
+    let mut y = end_y - CHUNK_SIZE;
+    while y >= start_y {
         let mut x = start_x;
         while x < end_x {
             let chunk_min = MercatorPoint::new(x, y);
@@ -662,11 +788,9 @@ fn split_mercatorbox(mbox: &MercatorBox) -> Vec2D<MercatorBox> {
             // debug!("Making chunk: {chunk_min:?}, {chunk_max:?}");
             let chunk = MercatorBox::new(chunk_min, chunk_max);
             chunks.push(chunk);
-            x += CHUNK_SIZE;
-            x = round(x, 4);
+            x = round(x + CHUNK_SIZE, 4);
         }
-        y += CHUNK_SIZE;
-        y = round(y, 4);
+        y = round(y - CHUNK_SIZE, 4);
         println!("{}", chunks.len());
     }
 

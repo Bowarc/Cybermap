@@ -1,13 +1,13 @@
 use std::{
     iter::Iterator,
     sync::Arc,
-    time::{Duration, Instant},
+    time::{Duration, SystemTime},
 };
 use tokio::sync::RwLock;
 
 pub struct APIServer {
     url: Arc<str>,
-    last_request: Instant,
+    last_request: SystemTime,
 }
 
 #[derive(Clone)]
@@ -22,7 +22,7 @@ impl ServerPool {
             .iter()
             .map(|url| APIServer {
                 url: Arc::from(*url),
-                last_request: Instant::now(),
+                last_request: SystemTime::UNIX_EPOCH,
             })
             .collect::<Box<[APIServer]>>();
 
@@ -33,13 +33,13 @@ impl ServerPool {
     }
 
     pub async fn find_one_ready(&self) -> Option<Arc<str>> {
-        let now = Instant::now();
+        let now = SystemTime::now();
 
         self.servers
             .write()
             .await
             .iter_mut()
-            .find(|server| now - server.last_request > self.cooldown)
+            .find(|server| now.duration_since(server.last_request).unwrap() > self.cooldown)
             .map(|server| {
                 server.last_request = now;
                 server.url.clone()

@@ -26,6 +26,7 @@ impl NWR {
 
 #[derive(Debug, Clone)]
 pub struct OSMNode {
+    /// OSM internal id
     pub osm_id: u64,
     pub pos: GeoPoint,
     pub tags: Tagmap,
@@ -38,25 +39,36 @@ impl PartialEq for OSMNode {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// A way, as it is given by OSM
 pub struct OSMWay {
+    /// OSM internal id
     pub osm_id: u64,
+    /// List of nodes that makes the way
     pub nodes: Arc<[OSMNode]>,
+    /// Map of tags given by OSM, this Tagmap is supposed to be read only
     pub tags: Tagmap,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct OSMRelation {}
+/// I don't really have a point for this type yet
+pub struct OSMRelation;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MercatorNode {
+    /// OSM internal id
     pub osm_id: u64,
+    /// Position given by OSM, converted to Mercator using crate::coord::convertion
     pub pos: MercatorPoint,
+    /// Map of tags given by OSM, this Tagmap is supposed to be read only
     pub tags: Tagmap,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MercatorWay {
+    /// OSM internal id
     pub osm_id: u64,
+    /// List of nodes that makes the way, they are given by OSM and converted using crate::coord::convertion
     pub nodes: Arc<[MercatorNode]>,
+    /// Map of tags given by OSM, this Tagmap is supposed to be read only
     pub tags: Tagmap,
 }

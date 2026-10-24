@@ -56,6 +56,8 @@ pub struct MercatorBox {
 
 impl MercatorBox {
     pub fn new(min: MercatorPoint, max: MercatorPoint) -> Self {
+        assert!(min.y < max.y, "Bad Y. min: {min:?}, max: {max:?}");
+        assert!(min.x < max.x, "Bad X. min: {min:?}, max: {max:?}");
         Self { min, max }
     }
 
@@ -110,8 +112,11 @@ impl MercatorBox {
         }
     }
     /// Borders count too (<>=)
-    pub fn contains_point(&self, point: MercatorPoint) -> bool {
-        self.min.x <= point.x && self.max.x >= point.x && self.min.y <= point.y && self.max.y >= point.y
+    pub fn contains_point(&self, point: &MercatorPoint) -> bool {
+        self.min.x <= point.x
+            && self.max.x >= point.x
+            && self.min.y <= point.y
+            && self.max.y >= point.y
     }
 }
 
