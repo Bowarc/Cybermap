@@ -917,3 +917,41 @@ fn split_mercatorbox_test() {
     //     );
     // }
 }
+
+#[test]
+fn split_mercatorbox_visualisation() {
+    let bx = GeoBox::from_center_and_size(GeoPoint::new(10., 10.), (0.5, 0.5));
+
+    let mbx = bx.to_mercator();
+
+    let chunks = split_mercatorbox(&mbx);
+
+    let display = |geobox: &GeoBox| {
+        println!(
+            "({}, {}, {}, {}),",
+            round(geobox.center().lat(), 5),
+            round(geobox.center().lon(), 5),
+            round(geobox.max().lat() - geobox.min().lat(), 5),
+            round(geobox.max().lon() - geobox.min().lon(), 5),
+        );
+    };
+
+    let display_mercator = |mercatorbox: &MercatorBox| {
+        println!(
+            "({}, {}, {}, {}),",
+            round(mercatorbox.max().x() - mercatorbox.width() / 2., 5),
+            round(mercatorbox.max().y() - mercatorbox.height() / 2., 5),
+            round(mercatorbox.width(), 5),
+            round(mercatorbox.height(), 5),
+        );
+    };
+
+    // First print is main area
+    display_mercator(&mbx);
+
+    for pos in chunks.iter() {
+        let chunk = chunks.get(pos.0, pos.1).unwrap(); // Cannot fail
+
+        display_mercator(&chunk);
+    }
+}
