@@ -4,7 +4,7 @@ use osm::{
         geo::{GeoBox, GeoPoint},
         mercator::{MercatorBox, MercatorPoint},
     },
-    element::{MercatorNode, MercatorWay, NWR},
+    element::{MercatorNWR, MercatorNode, MercatorWay, NWR},
 };
 use reqwest::{Client, StatusCode};
 use std::{collections::HashMap, rc::Rc, sync::Arc, time::Duration};
@@ -42,9 +42,9 @@ const USER_AGENT: &str = "CybermapTesting/0.1.0 (linux; x86_64)";
 
 const API_SERVERS: &[&str] = &[
     // "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-    "https://overpass-api.de/api/interpreter",
-    "https://lz4.overpass-api.de/api/interpreter",
     "https://z.overpass-api.de/api/interpreter",
+    "https://lz4.overpass-api.de/api/interpreter",
+    "https://overpass-api.de/api/interpreter",
     // Fallback, we won't use it unless we have no other choice
     "https://overpass.private.coffee/api/interpreter",
 ];
@@ -146,27 +146,29 @@ async fn handle_request(
 
     debug!("Asking cache for known regions");
     // Fetch cached chunks
-    for (x, y) in chunk_rects.iter() {
-        let chunk_rect = chunk_rects.get(x, y).unwrap();
+    {
+        for (x, y) in chunk_rects.iter() {
+            let chunk_rect = chunk_rects.get(x, y).unwrap();
 
-        let key = serde_json::to_string(chunk_rect).unwrap();
-        match cache_read.get(&key) {
-            Ok(Some(data)) => {
-                let chunk = serde_json::from_str::<chunk::Chunk>(&data).unwrap();
-                chunks.insert((x, y), chunk);
-            }
-            Ok(None) => (), // The chunk is new
-            Err(e) => {
-                error!("Something has gone wrong while fetching chunks from storage: {e}");
-                // i+=1;
-                return Ok(warp::reply::with_status(
-                    "Something went wrong",
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                ));
+            let key = serde_json::to_string(chunk_rect).unwrap();
+            match cache_read.get(&key) {
+                Ok(Some(data)) => {
+                    let chunk = serde_json::from_str::<chunk::Chunk>(&data).unwrap();
+                    chunks.insert((x, y), chunk);
+                }
+                Ok(None) => (), // The chunk is new
+                Err(e) => {
+                    error!("Something has gone wrong while fetching chunks from storage: {e}");
+                    // i+=1;
+                    return Ok(warp::reply::with_status(
+                        "Something went wrong".to_string(),
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                    ));
+                }
             }
         }
+        debug!("Found {} cached chunks", chunks.len());
     }
-    debug!("Found {} cached chunks", chunks.len());
     drop(cache_read);
 
     // build to-be-requested areas
@@ -187,7 +189,7 @@ async fn handle_request(
         to_be_requested.len()
     );
 
-    // NOTE: This should probably hold mercator data in order to not convert multiple times later
+    // NOTE: This should probably hold mercator data directly instead of converting below
     let mut new_data: NWR = NWR::default();
     for (i, chunk_rect) in to_be_requested.iter().enumerate() {
         // NOTE: Would be nice to request a bit more than necessary in order to not miss any data (geo -> mercator error)
@@ -222,8 +224,23 @@ async fn handle_request(
         }
 
         for (key, way) in data.ways.into_iter() {
+            // TODO, BUG.
+            // Another call could have received an incomplete version of this OSMWay, this might be a ID duplicate
+            // but it does not mean that the nodes or tags are the same
+            // Find a way to merge them here
             if new_data.ways.contains_key(&key) {
-                warn!("New NWR already contains the way:\nKey: {key}\nData: {way:?}");
+                let new_ids = way.nodes.iter().map(|node| node.osm_id).collect::<Vec<_>>();
+                let old_ids = new_data
+                    .ways
+                    .get(&key)
+                    .unwrap()
+                    .nodes
+                    .iter()
+                    .map(|node| node.osm_id)
+                    .collect::<Vec<_>>();
+                warn!(
+                    "New NWR already contains the way:\nKey: {key}\nOld ids: {old_ids:?}\nNew ids: {new_ids:?}"
+                );
                 continue;
             }
             new_data.ways.insert(key, way);
@@ -232,11 +249,8 @@ async fn handle_request(
         // TODO: relations ?
     }
 
+    // STATE: We have a lot of geo data, but we work in mercator coordinates
     debug!("Done, converting OSM data to mercator..");
-
-    // TODO: Here, maybe convert into mercator types ?
-    // let new_data: MERCATORNWR ?
-    // STATE: Here, we got a bunch of data, that we have to split back into the original chunks
     let new_nodes = new_data
         .nodes
         .into_iter()
@@ -258,17 +272,24 @@ async fn handle_request(
             let nodes = way
                 .nodes
                 .iter()
-                .flat_map(|osm_node| {
-                    let res = new_nodes.get(&osm_node.osm_id);
-                    if res.is_none() {
-                        // warn!(
-                        //     "A way node was not in the node pool\nId: {}\nNode: {osm_node:?}",
-                        //     osm_node.osm_id
-                        // );
-                    }
-                    res
+                // .flat_map(|osm_node| {
+                //     // BUG: I'm expecting the node to be in the nodelist, but way nodes are stored only in ways
+                //     // Idk where I store ways with only nodeids, but it's not here
+                //     let res = new_nodes.get(&osm_node.osm_id);
+                //     if res.is_none() {
+                //         warn!(
+                //             "A way node was not in the node pool\nId: {}\nNode: {osm_node:?}",
+                //             osm_node.osm_id
+                //         );
+                //     }
+                //     res
+                // })
+                .map(|osm_node| MercatorNode {
+                    osm_id: osm_node.osm_id,
+                    pos: convertion::geo_to_mercator(&osm_node.pos),
+                    // FIXME: I don't like this clone, but nodes is an Arc, which i can't move out of
+                    tags: osm_node.tags.clone(),
                 })
-                .cloned()
                 .collect::<Vec<MercatorNode>>();
 
             (
@@ -282,15 +303,28 @@ async fn handle_request(
         })
         .collect::<HashMap<u64, MercatorWay>>();
 
+    debug!(
+        "Got {} new nodes: {new_nodes:?}\n and {} new ways: {new_ways:?}",
+        new_nodes.len(),
+        new_ways.len()
+    );
+
     // This is OSM data, and should not be used as-is
     // drop(new_data);
 
+    // STATE: We got the data, let's put it back into the corresponding chunks
+    // NOTE: Now that I think of it, this and the last two steps could be merged into a single one
+    // for .. in to_be_requested
+    // request
+    // convert to mercator
+    // put the data in the right chunk
+    // That would also remove the need to check every node received to find what chunk it should be assigned to
+    // (Also, it is causing a BUG rn, and a requested way is not picked up by it's chunk and the chunk is staying empty)
     debug!("Putting back data into original chunks..");
 
     assert_eq!(to_request.len(), chunk_rects.len());
     let mut new_chunks: Vec<(chunk::Chunk, (usize, usize))> =
         Vec::with_capacity(to_be_requested.len()); // x, y
-    // todo!("For chunks-that-have-no-data");
     for (x, y) in chunk_rects.iter() {
         if to_request.get(x, y) != Some(&true) {
             // that chunk already has data
@@ -374,15 +408,58 @@ async fn handle_request(
         cache_write.insert(&key, &data).unwrap();
 
         // Push to chunks
-        chunks.insert(pos, chunk);
+        // BUG: Why is this here ?
+        // Ig because we don't want to write non-new chunks ?
+        // There has to be a better solution
+        if let Some(replaced) = chunks.insert(pos, chunk) {
+            warn!(
+                "A new chunk somehow replaced one that was already saved. (Pos: {pos:?}, old chunk: {replaced:?})"
+            );
+        }
     }
     drop(cache_write);
 
-    todo!("Group the chunk grid (now full unless errors) into a big NWR");
+    // todo!("Group the chunk grid (now full unless errors) into a big NWR");
 
-    todo!("Send back over the wire");
+    let mercator_nwr = merge_mercator_chunks(chunks);
 
-    Ok(warp::reply::with_status("", StatusCode::IM_A_TEAPOT))
+    // todo!("Send back over the wire");
+    let mercator_nwr_json = serde_json::to_string(&mercator_nwr).unwrap();
+
+    Ok(warp::reply::with_status(mercator_nwr_json, StatusCode::OK))
+}
+
+fn merge_mercator_chunks(chunks: HashMap<(usize, usize), chunk::Chunk>) -> MercatorNWR {
+    let mut mnwr = MercatorNWR::empty();
+
+    for (_pos, chunk) in chunks {
+        for (id, node) in chunk.nodes.into_iter() {
+            if mnwr.nodes.contains_key(&id) {
+                // NOTE: Maybe check and merge tags ?
+                // Also make sure that they have the same position.
+                continue;
+            }
+            mnwr.nodes.insert(id, node);
+        }
+        for (id, way) in chunk.ways.into_iter() {
+            if mnwr.ways.contains_key(&id) {
+                // NOTE: Need to merge, probably a method in the MercatorWay / MercatorNode structs
+                // trying to merge self with another one.
+                // If they are contiguous, perfect, easy merge, add tags, done
+                // but if not, i'm not sure how to proceed.
+                // Maybe check if one's a superset (⊃) of the other ?
+                // If not, maybe one is supposed to be inside the other one ?
+                // A = 123489, B = 34567 OR B = 345678
+                // Even though we can't actually see the numbers, we could find the start and end of B in A's nodes)
+                // It would be a bit more difficult if they don't line up at all (B = 567),
+                // then we can't know if B is before, inside or after A.
+                continue;
+            }
+            mnwr.ways.insert(id, way);
+        }
+    }
+
+    mnwr
 }
 
 async fn request_area_with_url(gbox: GeoBox, api_url: Arc<str>) -> Result<NWR, String> {
@@ -425,6 +502,8 @@ out;"#,
         gbox.max().lat(),
         gbox.max().lon()
     );
+
+    trace!("Sending: {query}");
 
     let request = client
         .get(api_url.to_string()) // My dev proxy is somehow turning them into 'bad requests'
@@ -720,42 +799,6 @@ fn split_oms_data_in_chunks(geobox: &GeoBox, nwr: osm::element::NWR) -> Vec2D<ch
     Vec2D::new_from_vec(chunks, chunk_rects.width(), chunk_rects.height()).unwrap()
 }
 
-fn split_geobox(geobox: &GeoBox) -> Vec<GeoBox> {
-    let mut chunks = Vec::new();
-    const CHUNK_SIZE: f64 = 0.005; // degrees
-    let min_lat = geobox.min().lat();
-    let max_lat = geobox.max().lat();
-    let min_lon = geobox.min().lon();
-    let max_lon = geobox.max().lon();
-
-    let start_lat = round((min_lat / CHUNK_SIZE).floor() * CHUNK_SIZE, 10);
-    let end_lat = round((max_lat / CHUNK_SIZE).ceil() * CHUNK_SIZE, 10);
-    let start_lon = round((min_lon / CHUNK_SIZE).floor() * CHUNK_SIZE, 10);
-    let end_lon = round((max_lon / CHUNK_SIZE).ceil() * CHUNK_SIZE, 10);
-
-    debug!("{geobox:?}");
-    debug!("{start_lat}, {start_lon}, {end_lat}, {end_lon}");
-
-    let mut lat = start_lat;
-    while lat < end_lat {
-        let mut lon = start_lon;
-        while lon < end_lon {
-            let chunk_min = GeoPoint::new(lat, lon);
-            let chunk_max = GeoPoint::new(round(lat + CHUNK_SIZE, 10), round(lon + CHUNK_SIZE, 10));
-            // debug!("Making chunk: {chunk_min:?}, {chunk_max:?}");
-            let chunk = GeoBox::new(chunk_min, chunk_max);
-            chunks.push(chunk);
-            lon += CHUNK_SIZE;
-            lon = round(lon, 4);
-        }
-        lat += CHUNK_SIZE;
-        lat = round(lat, 4);
-        println!("{}", chunks.len());
-    }
-
-    chunks
-}
-
 /// Split an area into a list of chunks with standardized centers (to the 10th mercator decimal)
 fn split_mercatorbox(mbox: &MercatorBox) -> Vec2D<MercatorBox> {
     let mut chunks = Vec::new();
@@ -785,7 +828,7 @@ fn split_mercatorbox(mbox: &MercatorBox) -> Vec2D<MercatorBox> {
             let chunk_min = MercatorPoint::new(x, y);
             let chunk_max =
                 MercatorPoint::new(round(x + CHUNK_SIZE, 10), round(y + CHUNK_SIZE, 10));
-            // debug!("Making chunk: {chunk_min:?}, {chunk_max:?}");
+            // debug!("Creating chunk: {chunk_min:?}, {chunk_max:?}");
             let chunk = MercatorBox::new(chunk_min, chunk_max);
             chunks.push(chunk);
             x = round(x + CHUNK_SIZE, 4);

@@ -53,6 +53,20 @@ pub struct OSMWay {
 /// I don't really have a point for this type yet
 pub struct OSMRelation;
 
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct MercatorNWR {
+    pub nodes: HashMap<u64, MercatorNode>,
+    pub ways: HashMap<u64, MercatorWay>,
+}
+impl MercatorNWR {
+    pub fn empty() -> Self {
+        Self {
+            nodes: HashMap::new(),
+            ways: HashMap::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MercatorNode {
     /// OSM internal id
@@ -63,6 +77,12 @@ pub struct MercatorNode {
     pub tags: Tagmap,
 }
 
+impl PartialEq for MercatorNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.osm_id == other.osm_id
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MercatorWay {
     /// OSM internal id
@@ -71,4 +91,10 @@ pub struct MercatorWay {
     pub nodes: Arc<[MercatorNode]>,
     /// Map of tags given by OSM, this Tagmap is supposed to be read only
     pub tags: Tagmap,
+}
+
+impl PartialEq for MercatorWay {
+    fn eq(&self, other: &Self) -> bool {
+        self.osm_id == other.osm_id
+    }
 }

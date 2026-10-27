@@ -74,9 +74,17 @@ pub fn parse_osm_json(json_value: serde_json::Value) -> Result<NWR, serde_json::
 
     let mut nwr = NWR::default();
 
+    trace!(
+        "Split data has:{} nodes\n{} ways\n{} relations\n{} unknowns",
+        split_data.nodes.len(),
+        split_data.ways.len(),
+        split_data.relations.len(),
+        split_data.others.len()
+    );
+
     for element in split_data.nodes.into_iter() {
         let (Some(lat), Some(lon)) = (element.lat, element.lon) else {
-            println!("Could not process node: {element:?} as it's missing lat or lon");
+            warn!("Could not process node: {element:?} as it's missing lat or lon");
             continue;
         };
         let geopoint = crate::coord::geo::GeoPoint::new(lat, lon);
@@ -132,7 +140,13 @@ pub fn parse_osm_json(json_value: serde_json::Value) -> Result<NWR, serde_json::
         }
     }
 
-    println!("Skipped {} relations", split_data.relations.len());
+    trace!(
+        "Skipped {} relations, {} unknown elements\nGenerated NWR has {} nodes and {} ways",
+        split_data.relations.len(),
+        split_data.others.len(),
+        nwr.nodes.len(),
+        nwr.ways.len()
+    );
 
     Ok(nwr)
 }

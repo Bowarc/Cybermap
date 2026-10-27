@@ -7,6 +7,7 @@ edition = "2024"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 dioxus-logger = "0.7.2"
+log.workspace = true
 
 [dev-dependencies]
 reqwest = { workspace = true, features = ["blocking", "json", "query"] }
