@@ -46,13 +46,13 @@ Webserver - [Warp](https://docs.rs/warp/latest/warp/) if I can, else i'll go bac
    - [ ] UI implementation  
    - [ ] Geolocalisation
    - [x] Retrieving OSM data from server
-   - [ ] Move around  
+   - [ ] Move around [WIP]
 - [ ] Web  
    - [ ] UI implementation
    - [x] Geolocalisation
    - [x] Retrieving OSM data from server
    - [x] React to window resizing
-   - [ ] Move around  
+   - [ ] Move around [WIP]
    - [ ] Download the mobile apps
 - [x] OSM
    - [x] Parse OSM api response
